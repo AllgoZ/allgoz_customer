@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "262404800727",
+    "project_id": "allgoz",
+    "storage_bucket": "allgoz.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:262404800727:android:d291ece153884d432a3092",
+        "android_client_info": {
+          "package_name": "com.example.allgoz"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBVQemdeObLUC8TOBTC1w14s2MPDNmHJPQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
