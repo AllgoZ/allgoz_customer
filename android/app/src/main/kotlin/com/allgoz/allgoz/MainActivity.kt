@@ -1,4 +1,4 @@
-package com.example.allgoz
+package com.allgoz.allgoz
 
 import io.flutter.embedding.android.FlutterActivity
 

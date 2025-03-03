@@ -3,10 +3,10 @@ import 'package:allgoz/Cart/cart.dart';
 import 'package:allgoz/Favorite/favorite.dart';
 import 'package:allgoz/Home/Categories/category_list.dart';
 import 'package:allgoz/Orders/my_orders.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:location/location.dart' as loc;
-
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -20,11 +20,13 @@ class _HomePageState extends State<HomePage> {
   int _currentPage = 0;
   String searchQuery = '';
   loc.Location location = loc.Location();
+  List<Map<String, dynamic>> categories = [];
 
   @override
   void initState() {
     super.initState();
     _checkLocationStatus();
+    _fetchCategories();
   }
 
   Future<void> _checkLocationStatus() async {
@@ -33,8 +35,24 @@ class _HomePageState extends State<HomePage> {
       _showLocationBottomSheet();
     }
   }
-  int _selectedIndex = 0; // Default to Cart
 
+  Future<void> _fetchCategories() async {
+    try {
+      QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('categories').get();
+      setState(() {
+        categories = snapshot.docs.map((doc) => {
+          'id': doc.id, // ✅ Store categoryId for navigation
+          'name': doc['name'],
+          'image': doc['image'],
+        }).toList();
+      });
+    } catch (e) {
+      print("Error fetching categories: $e");
+    }
+  }
+
+
+  int _selectedIndex = 0;
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -47,6 +65,7 @@ class _HomePageState extends State<HomePage> {
       Navigator.push(context, MaterialPageRoute(builder: (context) => AccountScreen()));
     }
   }
+
   void _showLocationBottomSheet() {
     showModalBottomSheet(
       context: context,
@@ -87,191 +106,28 @@ class _HomePageState extends State<HomePage> {
                   _checkLocationStatus();
                 }
               },
-              child: Text('Continue', style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,fontSize: 18,)),
+              child: Text('Continue', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Search your Location',style: TextStyle(fontWeight: FontWeight.bold,fontSize: 15,)),
+              child: Text('Search your Location', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             ),
           ],
         ),
       ),
     );
   }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Color(0xFF4A90E2),
-        title: Text(
-          'AllGoZ',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Poppins',
-            color: Colors.white,
-          ),
-        ),
-        centerTitle: true,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.video_collection_rounded, color: Colors.white),
-            onPressed: () {
-
-
-            },
-          ),
-          IconButton(
-            icon: Icon(Icons.help_outline, color: Colors.white),
-            onPressed: () {
-
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => MyOrdersScreen()),
-              );
-            },
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 8,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: TextField(
-                onChanged: (value) {
-                  setState(() {
-                    searchQuery = value;
-                  });
-                },
-                decoration: InputDecoration(
-                  hintText: 'Search...',
-                  border: InputBorder.none,
-                  icon: Icon(Icons.search),
-                ),
-              ),
-            ),
-            SizedBox(height: 16),
-            Container(
-              height: 200,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: Color(0xFFB0B1B4), width: 2),
-                color: Colors.grey[300],
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 8,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: PageView(
-                onPageChanged: (index) {
-                  setState(() {
-                    _currentPage = index;
-                  });
-                },
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.asset('assets/banner/banner5.png', fit: BoxFit.cover),
-                  ),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.asset('assets/banner/banner5.png', fit: BoxFit.cover),
-                  ),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.asset('assets/banner/banner5.png', fit: BoxFit.cover),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                3,
-                    (index) => Container(
-                  margin: EdgeInsets.symmetric(horizontal: 4),
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _currentPage == index ? Colors.black : Colors.grey,
-                  ),
-                ),
-              ),
-            ),
-            SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                if (searchQuery.isEmpty ||
-                    'Vegetables/காய்கறிகள்'
-                        .toLowerCase()
-                        .contains(searchQuery.toLowerCase()))
-                  _buildCategoryCard('Vegetables/காய்கறிகள்', 'assets/product/veg4.png', context),
-                if (searchQuery.isEmpty ||
-                    'Groceries/மளிகை'
-                        .toLowerCase()
-                        .contains(searchQuery.toLowerCase()))
-                  _buildCategoryCard('Groceries/மளிகை', 'assets/product/gropng.png', context),
-              ],
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        selectedItemColor: Color(0xFF4A90E2),
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart),
-            label: 'Cart',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite),
-            label: 'Favorites',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-        onTap: _onItemTapped,
-      ),
-    );
-  }
-
-  Widget _buildCategoryCard(String title, String imagePath, BuildContext context) {
+  Widget _buildCategoryCard(String displayTitle, String imagePath, String categoryId, BuildContext context) {
     return GestureDetector(
       onTap: () {
+        // Extract only the English part (before the "/")
+        String categoryKey = displayTitle.split('/')[0].trim();
+
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => CategoryScreen()),
+          MaterialPageRoute(
+            builder: (context) => CategoryScreen(categoryName: categoryKey), // ✅ Pass only English name
+          ),
         );
       },
       child: Card(
@@ -298,10 +154,10 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.asset(imagePath, height: 80, fit: BoxFit.cover),
+              Image.network(imagePath, height: 80, fit: BoxFit.cover), // ✅ Use Network Image
               SizedBox(height: 10),
               Text(
-                title,
+                displayTitle, // ✅ Display full name with Tamil text
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 18,
@@ -315,11 +171,125 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-}
 
-void main() {
-  runApp(MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: HomePage(),
-  ));
+
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Color(0xFF4A90E2),
+        title: Text(
+          'AllGoZ',
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, fontFamily: 'Poppins', color: Colors.white),
+        ),
+        centerTitle: true,
+        actions: [
+          IconButton(icon: Icon(Icons.video_collection_rounded, color: Colors.white), onPressed: () {}),
+          IconButton(icon: Icon(Icons.help_outline, color: Colors.white), onPressed: () {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => MyOrdersScreen()));
+          }),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 4)),
+                ],
+              ),
+              child: TextField(
+                onChanged: (value) {
+                  setState(() {
+                    searchQuery = value;
+                  });
+                },
+                decoration: InputDecoration(hintText: 'Search...', border: InputBorder.none, icon: Icon(Icons.search)),
+              ),
+            ),
+            SizedBox(height: 16),
+            Container(
+              height: 200,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: Color(0xFFB0B1B4), width: 2),
+                color: Colors.grey[300],
+                boxShadow: [
+                  BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4)),
+                ],
+              ),
+              child: PageView(
+                onPageChanged: (index) {
+                  setState(() {
+                    _currentPage = index;
+                  });
+                },
+                children: [
+                  ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.asset('assets/banner/banner5.png', fit: BoxFit.cover)),
+                  ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.asset('assets/banner/banner5.png', fit: BoxFit.cover)),
+                  ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.asset('assets/banner/banner5.png', fit: BoxFit.cover)),
+                ],
+              ),
+            ),
+            SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                3,
+                    (index) => Container(
+                  margin: EdgeInsets.symmetric(horizontal: 4),
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: _currentPage == index ? Colors.black : Colors.grey),
+                ),
+              ),
+            ),
+            SizedBox(height: 16),
+            Expanded(
+              child: GridView.builder(
+                itemCount: categories.length,
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 13,
+                  mainAxisSpacing: 13,
+                  childAspectRatio: 0.9,
+                ),
+                itemBuilder: (context, index) {
+                  return _buildCategoryCard(
+                    categories[index]['name'],
+                    categories[index]['image'],
+                    categories[index]['id'], // ✅ Pass categoryId
+                    context,
+                  );
+                },
+              ),
+            ),
+
+
+          ],
+        ),
+      ),
+
+
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        selectedItemColor: Color(0xFF4A90E2),
+        unselectedItemColor: Colors.grey,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: 'Cart'),
+          BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'Favorites'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+        ],
+        onTap: _onItemTapped,
+      ),
+    );
+  }
 }
