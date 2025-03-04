@@ -20,9 +20,11 @@ class _CategoryScreenState extends State<CategoryScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchTypes(); // Fetch left sidebar content
-    _fetchCart();   // ✅ Start listening to Firestore cart updates
     _fetchUserPhoneNumber();
+    _fetchCart();
+    _fetchTypes(); // Fetch left sidebar content
+       // ✅ Start listening to Firestore cart updates
+
   }
 
   void _fetchUserPhoneNumber() {
@@ -39,7 +41,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
 
 
-
   void _fetchCart() {
     if (userPhoneNumber == null) return;
 
@@ -50,12 +51,23 @@ class _CategoryScreenState extends State<CategoryScreen> {
         .snapshots()
         .listen((snapshot) {
       Map<String, int> updatedCart = {};
+
       for (var doc in snapshot.docs) {
-        updatedCart[doc.id] = doc['quantity'];
+        updatedCart[doc.id] = doc['quantity']; // ✅ Store Firestore quantity
       }
+
       setState(() {
-        cartItems = updatedCart; // ✅ UI updates whenever cart changes
+        cartItems = updatedCart; // ✅ UI now syncs with Firestore cart
+
+        // 🔥 Update product quantities in the UI if they exist in the cart
+        for (var product in products) {
+          if (cartItems.containsKey(product['id'])) {
+            product['cartQuantity'] = cartItems[product['id']]; // ✅ Update quantity in UI
+          }
+        }
       });
+
+      print("📢 Updated cart from Firestore: $cartItems");
     });
   }
 
@@ -128,6 +140,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
             'discount': data['discount'] ?? 0,
             'quantity': data['quantity'] ?? "N/A", // ✅ Get quantity dynamically
             'unit': data['unit'] ?? "N/A", // ✅ Get unit dynamically
+            'cartQuantity': cartItems[doc.id] ?? 0, // ✅ Attach existing cart quantity from Firestore
           });
         }
       }
@@ -141,40 +154,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
       print("❌ Error fetching products: $e");
     }
   }
-
-
-
-
-  Future<void> _updateCart(String productId, Map<String, dynamic> product, int quantity) async {
-    if (userPhoneNumber == null) {
-      print("❌ No userPhoneNumber found! Cart cannot be updated.");
-      return;
-    }
-
-    DocumentReference cartRef = FirebaseFirestore.instance
-        .collection('customers')
-        .doc(userPhoneNumber)
-        .collection('cart')
-        .doc(productId);
-
-    if (quantity > 0) {
-      print("🛒 Adding ${product['name']} (Qty: $quantity) to Firestore...");
-      await cartRef.set({
-        'name': product['name'],
-        'price': product['price'],
-        'quantity': quantity,
-        'grams': quantity * 100, // ✅ Convert to grams
-        'imageURL': product['imageURL'],
-        'unit': product['unit'],
-      }, SetOptions(merge: true));
-      print("✅ Successfully added to Firestore!");
-    } else {
-      print("🗑 Removing ${product['name']} from Firestore...");
-      await cartRef.delete();
-      print("✅ Removed from Firestore!");
-    }
-  }
-
 
 
 
@@ -229,7 +208,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
             ),
           ),
 
-          /// 🔹 Right Side (Products)
           Expanded(
             child: products.isEmpty
                 ? Center(child: Text("No products found", style: TextStyle(fontSize: 18)))
@@ -238,11 +216,13 @@ class _CategoryScreenState extends State<CategoryScreen> {
                 crossAxisCount: 2,
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 10,
-                childAspectRatio: 0.53, // 🔹 Adjusted aspect ratio to prevent overflow
+                childAspectRatio: 0.53, // Adjusted to prevent overflow
               ),
               itemCount: products.length,
               itemBuilder: (context, index) {
                 final product = products[index];
+                String productId = product['id'];
+                int cartQuantity = cartItems[productId] ?? 0; // ✅ Get quantity from Firestore
 
                 return GestureDetector(
                   onTap: () => _showBottomSheet(context, product),
@@ -294,7 +274,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
                         SizedBox(height: 8),
 
-                        // 🔹 Product Name (Multi-line)
+                        // 🔹 Product Name
                         Padding(
                           padding: EdgeInsets.symmetric(horizontal: 6),
                           child: Text(
@@ -306,14 +286,13 @@ class _CategoryScreenState extends State<CategoryScreen> {
                           ),
                         ),
 
-                        // 🔹 Weight / Quantity
-
+                        // 🔹 Quantity & Unit
                         Text(
-                          "${product['quantity']} ${product['unit']}", // ✅ Show quantity & unit dynamically
+                          "${product['quantity']} ${product['unit']}", // ✅ Show quantity dynamically
                           style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
                         ),
 
-                        // 🔹 Price & Discounted Price
+                        // 🔹 Price
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -322,7 +301,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
                               style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
                             ),
                             SizedBox(width: 5),
-                            if (product['originalPrice'] != null) // 🔹 Strike-through price if exists
+                            if (product['originalPrice'] != null) // Strike-through price if available
                               Text(
                                 "₹${product['originalPrice']}",
                                 style: TextStyle(
@@ -333,24 +312,83 @@ class _CategoryScreenState extends State<CategoryScreen> {
                           ],
                         ),
 
-                        Spacer(), // 🔹 Push Add to Cart button to bottom
+                        Spacer(), // Push Add to Cart button to bottom
 
-                        // 🔹 Add to Cart Button
                         Padding(
                           padding: const EdgeInsets.only(bottom: 8.0),
-                          child: ElevatedButton(
+                          child: cartQuantity == 0
+                              ? ElevatedButton(
                             onPressed: () {
-                              _addToCart(product);
+                              int baseGrams = (product['unit'] == "Kg") ? 1000 : 1;
+                              _updateCart(productId, product, 1, baseGrams);
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
+                              backgroundColor: Colors.white, // ✅ White background
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(9),
+                                borderRadius: BorderRadius.circular(9), // ✅ Rounded corners
+                                side: BorderSide(color: Colors.green, width: 2), // ✅ Green Outline
+                              ),
+                              padding: EdgeInsets.symmetric(horizontal: 15, vertical: 10), // ✅ Better padding
+                              minimumSize: Size(120, 40), // ✅ Make width match increment/decrement button
+                            ),
+                            child: Text(
+                              "Add to Cart",
+                              style: TextStyle(
+                                color: Colors.green, // ✅ Green text
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                            child: Text("Add to Cart"),
+                          )
+                              : Container(
+                            width: double.infinity, // ✅ Same width as "Add to Cart"
+                            height: 45, // ✅ Same height as "Add to Cart"
+                            decoration: BoxDecoration(
+                              color: Colors.white, // ✅ White Background
+                              borderRadius: BorderRadius.circular(9), // ✅ Rounded Corners
+                              border: Border.all(color: Colors.green, width: 2), // ✅ Green Outline
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween, // ✅ Better spacing
+                              children: [
+                                Expanded(
+                                  child: IconButton(
+                                    icon: Icon(Icons.remove, color: Colors.green, size: 20), // ✅ Green icon
+                                    onPressed: () {
+                                      int baseGrams = (product['unit'] == "Kg") ? 1000 : 1;
+                                      if (cartQuantity > 1) {
+                                        _updateCart(productId, product, cartQuantity - 1, baseGrams);
+                                      } else {
+                                        _removeFromCart(product); // ✅ Removes when quantity is 0
+                                      }
+                                    },
+                                  ),
+                                ),
+                                Text(
+                                  "$cartQuantity",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green, // ✅ Green text
+                                  ),
+                                ),
+                                Expanded(
+                                  child: IconButton(
+                                    icon: Icon(Icons.add, color: Colors.green, size: 20), // ✅ Green icon
+                                    onPressed: () {
+                                      int baseGrams = (product['unit'] == "Kg") ? 1000 : 1;
+                                      _updateCart(productId, product, cartQuantity + 1, baseGrams);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
+
+
+
+
                       ],
                     ),
                   ),
@@ -359,117 +397,197 @@ class _CategoryScreenState extends State<CategoryScreen> {
             ),
           ),
 
+
         ],
       ),
+      bottomNavigationBar: cartItems.isNotEmpty
+          ? Container(
+        decoration: BoxDecoration(
+          color: Colors.white, // ✅ White background for a clean look
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)), // ✅ Rounded top corners
+          border: Border.all(color: Colors.grey, width: 2), // ✅ Green outline
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 10,
+              offset: Offset(0, -4), // ✅ Creates a floating effect
+            ),
+          ],
+        ),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10), // ✅ Even padding
+        height: 68, // ✅ Increased height for a premium feel
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // ✅ Total Items in Cart (Left Side)
+            Text(
+              "${cartItems.values.fold(0, (sum, item) => sum + item)} Items",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87, // ✅ Slightly darker text for readability
+              ),
+            ),
+
+            // ✅ Styled "View Cart" Button
+            ElevatedButton(
+              onPressed: () {
+                _showCartModal(context); // ✅ Open Cart Modal
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green, // ✅ White background
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(9), // ✅ Rounded Corners
+                  // side: BorderSide(color: Colors.white, width: 2), // ✅ Green Outline
+                ),
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12), // ✅ More padding for a premium feel
+                minimumSize: Size(130, 45), // ✅ Fixed button size
+              ),
+              child: Text(
+                "View Cart",
+                style: TextStyle(
+                  color: Colors.white, // ✅ Green Text
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      )
+          : null,
+
+
+
     );
   }
+  void _showCartModal(BuildContext context) {
+    if (userPhoneNumber == null) {
+      print("User phone number is null, can't show cart modal");
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StreamBuilder(
+          stream: FirebaseFirestore.instance
+              .collection('customers')
+              .doc(userPhoneNumber)
+              .collection('cart')
+              .snapshots(),
+          builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
+            if (!snapshot.hasData) return Center(child: CircularProgressIndicator());
 
-  /// ✅ Product Card UI
-  /// ✅ Product Card UI
-  Widget _buildProductCard(Map<String, dynamic> product) {
-    return GestureDetector(
-      onTap: () {
-        print("🛒 Viewing Product: ${product['name']}"); // ✅ Debug product tap
-        _showBottomSheet(context, product);
-      },
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 5, vertical: 5), // ✅ Added padding
-        child: Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          elevation: 4,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Stack(
+            var cartData = snapshot.data!.docs;
+
+            return Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-                    child: Image.network(
-                      product['imageURL'],
-                      height: 110, // ✅ Adjusted height
-                      width: double.infinity,
-                      fit: BoxFit.cover,
+                  // 🔹 Modal Header
+                  Text("Your Cart", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  Divider(),
+
+                  // 🔹 Cart Items List
+                  Expanded(
+                    child: cartData.isNotEmpty
+                        ? ListView.builder(
+                      itemCount: cartData.length,
+                      itemBuilder: (context, index) {
+                        var cartItem = cartData[index];
+                        return ListTile(
+                          leading: Image.network(cartItem['imageURL'], width: 50),
+                          title: Text(cartItem['name']),
+                          subtitle: Text("₹${cartItem['price']} x ${cartItem['quantity']}"),
+                          trailing: Text(
+                            "₹${cartItem['price'] * cartItem['quantity']}",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        );
+                      },
+                    )
+                        : Center(
+                      child: Text("Your cart is empty", style: TextStyle(fontSize: 16)),
                     ),
                   ),
-                  Positioned(
-                    top: 5,
-                    left: 5,
-                    child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(6),
+                  SizedBox(height: 10),
+
+                  // 🔹 Checkout Button
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context); // ✅ Close modal before navigating
+                      // Implement Checkout Screen Navigation Here
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(9),
                       ),
-                      child: Text(
-                        "${product['discount']}% Off",
-                        style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                      ),
+                      minimumSize: Size(double.infinity, 50), // ✅ Full-width button
                     ),
+                    child: Text("Proceed to Checkout", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                child: Column(
-                  children: [
-                    Text(
-                      product['name'],
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis, // ✅ Prevent overflow
-                    ),
-                    SizedBox(height: 4),
-
-                    // 🔹 Display Dynamic Quantity & Unit from Firestore
-                    Text(
-                      "${product['quantity']} ${product['unit']}", // ✅ Show quantity & unit dynamically
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey),
-                    ),
-
-                    SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "₹${product['price']}",
-                          style: TextStyle(color: Colors.green, fontSize: 15, fontWeight: FontWeight.bold),
-                        ),
-                        SizedBox(width: 5),
-                        Text(
-                          "₹${product['originalPrice'] ?? 'null'}",
-                          style: TextStyle(
-                            decoration: TextDecoration.lineThrough,
-                            color: Colors.grey,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 6),
-                    ElevatedButton(
-                      onPressed: () {
-                        _addToCart(product); // ✅ Calls the updated function
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        minimumSize: Size(double.infinity, 38), // ✅ Full-width button
-                      ),
-                      child: Text(
-                        "Add to Cart",
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+            );
+          },
+        );
+      },
     );
   }
+
+
+
+
+
+  Future<void> _updateCart(String productId, Map<String, dynamic> product, int totalQuantity, int baseGrams) async {
+    if (userPhoneNumber == null) {
+      print("❌ No userPhoneNumber found! Cart cannot be updated.");
+      return;
+    }
+
+    // ✅ Update UI instantly before Firestore update
+    setState(() {
+      if (totalQuantity > 0) {
+        cartItems[productId] = totalQuantity; // ✅ Update UI immediately
+      } else {
+        cartItems.remove(productId); // ✅ Remove from cart UI instantly
+      }
+    });
+
+    DocumentReference cartRef = FirebaseFirestore.instance
+        .collection('customers')
+        .doc(userPhoneNumber)
+        .collection('cart')
+        .doc(productId);
+
+    int totalGrams = totalQuantity * baseGrams; // 🔥 Convert quantity to grams
+
+    if (totalQuantity > 0) {
+      print("🛒 Updating ${product['name']} (Qty: $totalQuantity | Grams: $totalGrams) in Firestore...");
+      await cartRef.set({
+        'name': product['name'],
+        'price': product['price'],
+        'quantity': totalQuantity,
+        'grams': totalGrams,
+        'imageURL': product['imageURL'],
+        'unit': product['unit'],
+        'totalQuantity': totalQuantity, // ✅ Track total quantity
+      }, SetOptions(merge: true));
+
+      print("✅ Successfully updated Firestore!");
+    } else {
+      print("🗑 Removing ${product['name']} from Firestore...");
+      await cartRef.delete();
+      print("✅ Removed from Firestore!");
+    }
+  }
+
+
 
 
   void _addToCart(Map<String, dynamic> product) {
@@ -485,7 +603,9 @@ class _CategoryScreenState extends State<CategoryScreen> {
     int newQuantity = (cartItems[productId] ?? 0) + 1;
 
     print("📢 Adding product to Firestore: ID = $productId, New Qty = $newQuantity");
-    _updateCart(productId, product, newQuantity);
+    int baseGrams = (product['unit'] == "Kg") ? 1000 : 1; // ✅ Determine grams per unit
+    _updateCart(productId, product, newQuantity, baseGrams); // ✅ Pass all 4 arguments
+
   }
 
 
@@ -501,10 +621,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
 
 
-
-
-
-  /// ✅ Show Bottom Modal Sheet (Product Details)
   void _showBottomSheet(BuildContext context, Map<String, dynamic> product) {
     showModalBottomSheet(
       context: context,
@@ -514,7 +630,11 @@ class _CategoryScreenState extends State<CategoryScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            product['grams'] ??= 1000; // Default to 1000g
+            // 🔹 Convert `quantity` to an integer and store in `totalQuantity`
+            int totalQuantity = cartItems[product['id']] ?? 0;
+
+            int baseGrams = (product['unit'] == "Kg") ? 1000 : 1; // 1 Kg = 1000g
+            int grams = totalQuantity * baseGrams; // 🔥 Calculate grams
 
             return Padding(
               padding: const EdgeInsets.all(16.0),
@@ -522,21 +642,18 @@ class _CategoryScreenState extends State<CategoryScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // 🔹 Favorite Button
+                  // 🔹 Favorite Button (Top Right)
                   Align(
                     alignment: Alignment.topRight,
                     child: IconButton(
                       icon: Icon(
-                        (product['isFavorite'] ?? false)
-                            ? Icons.favorite
-                            : Icons.favorite_border,
-                        color: (product['isFavorite'] ?? false)
-                            ? Colors.red
-                            : Colors.grey,
+                        (product['isFavorite'] ?? false) ? Icons.favorite : Icons.favorite_border,
+                        color: (product['isFavorite'] ?? false) ? Colors.red : Colors.grey,
                       ),
                       onPressed: () {
                         setModalState(() {
                           product['isFavorite'] = !(product['isFavorite'] ?? false);
+                          _updateFavorite(product['id'], product['isFavorite']);
                         });
                       },
                     ),
@@ -553,66 +670,107 @@ class _CategoryScreenState extends State<CategoryScreen> {
                   SizedBox(height: 10),
 
                   // 🔹 Product Name & Price
-                  Text(product['name'],
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-                  Text('₹${product['price']}',
-                      style: TextStyle(color: Colors.green, fontSize: 16)),
+                  Text(product['name'], style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+                  Text('₹${product['price']}', style: TextStyle(color: Colors.green, fontSize: 16)),
                   Text("${product['quantity']} ${product['unit']}",
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey)),
 
-                  // 🔹 Product Rating
-                  if (product.containsKey('rating') && product.containsKey('reviews'))
-                    Text('Rating: ⭐${product['rating']} ${product['reviews']}'),
+                  SizedBox(height: 10),
+
+                  // 🔹 Display Grams Based on Quantity
+                  if (totalQuantity > 0)
+                    Text(
+                      "Total: ${grams}g",
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue),
+                    ),
 
                   SizedBox(height: 10),
 
-                  // 🔹 Quantity Selection (100g increments)
-                  Text("Quantity in grams", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  // 🔹 Add to Cart & View Cart Row
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      IconButton(
-                        icon: Icon(Icons.remove_circle_outline),
-                        onPressed: () {
-                          setModalState(() {
-                            if (product['grams'] > 100) {
-                              product['grams'] -= 100;
-                            }
-                          });
-                        },
-                      ),
-                      Text('${product['grams']} g',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      IconButton(
-                        icon: Icon(Icons.add_circle_outline),
-                        onPressed: () {
-                          setModalState(() {
-                            product['grams'] += 100;
-                          });
-                        },
+                      // 🔹 View Cart Button (Appears if item is in cart)
+                      if (totalQuantity > 0)
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.pop(context); // Close modal and go to cart screen
+                              Navigator.push(context, MaterialPageRoute(builder: (context) => CartScreen()));
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(9),
+                                side: BorderSide(color: Colors.green),
+                              ),
+                              minimumSize: Size(double.infinity, 50), // Full-width button
+                            ),
+                            child: Text("View Cart", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+
+                      SizedBox(width: totalQuantity > 0 ? 10 : 0), // Space only if View Cart is visible
+
+                      // 🔹 Add to Cart OR - 1 + Buttons
+                      Expanded(
+                        child: totalQuantity == 0
+                            ? ElevatedButton(
+                          onPressed: () {
+                            setModalState(() {
+                              product['cartQuantity'] = 1; // ✅ Set quantity to 1 when added
+                              _updateCart(product['id'], product, 1, baseGrams); // ✅ Update Firestore
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(9),
+                            ),
+                            minimumSize: Size(double.infinity, 50), // Full-width button
+                          ),
+                          child: Text("Add to Cart", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        )
+                            : Container(
+                          decoration: BoxDecoration(
+                            color: Colors.green,
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              IconButton(
+                                icon: Icon(Icons.remove, color: Colors.white),
+                                onPressed: () {
+                                  setModalState(() {
+                                    if (product['cartQuantity'] > 1) {
+                                      product['cartQuantity']--; // Decrease quantity
+                                      _updateCart(product['id'], product, product['cartQuantity'], baseGrams);
+
+                                    } else {
+                                      product['cartQuantity'] = 0; // Remove from cart
+                                      _removeFromCart(product);
+                                    }
+                                  });
+                                },
+                              ),
+                              Text("${product['cartQuantity']}",
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                              IconButton(
+                                icon: Icon(Icons.add, color: Colors.white),
+                                onPressed: () {
+                                  setModalState(() {
+                                    product['cartQuantity']++; // Increase quantity
+                                    _updateCart(product['id'], product, product['cartQuantity'], baseGrams);
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
-
-                  SizedBox(height: 10),
-
-                  // 🔹 Add to Cart Button
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: ElevatedButton(
-                      onPressed: () {
-                        _addToCart(product); // ✅ Calls Firestore update
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(9),
-                        ),
-                      ),
-                      child: Text("Add to Cart"),
-                    ),
-                  ),
-
                 ],
               ),
             );
@@ -621,5 +779,54 @@ class _CategoryScreenState extends State<CategoryScreen> {
       },
     );
   }
+
+
+
+
+
+  Future<void> _updateFavorite(String productId, bool isFavorite) async {
+    if (userPhoneNumber == null) return;
+
+    DocumentReference productRef = FirebaseFirestore.instance
+        .collection('customers')
+        .doc(userPhoneNumber)
+        .collection('cart')
+        .doc(productId);
+
+    try {
+      await productRef.set({
+        'isFavorite': isFavorite, // ✅ Save favorite status
+      }, SetOptions(merge: true));
+
+      print("❤️ Updated favorite status for $productId: $isFavorite");
+    } catch (e) {
+      print("❌ Error updating favorite: $e");
+    }
+  }
+
+  void _removeFromCart(Map<String, dynamic> product) async {
+    if (userPhoneNumber == null) return;
+
+    String productId = product['id']; // Unique product ID
+
+    // 🔹 Update UI immediately
+    setState(() {
+      cartItems.remove(productId);
+    });
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('customers')
+          .doc(userPhoneNumber)
+          .collection('cart')
+          .doc(productId)
+          .delete(); // ✅ Remove item from Firestore
+
+      print("🗑 Removed ${product['name']} from Firestore!");
+    } catch (e) {
+      print("❌ Error removing from cart: $e");
+    }
+  }
+
 
 }
