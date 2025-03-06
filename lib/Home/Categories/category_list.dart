@@ -114,8 +114,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
       print("📢 Fetching products for category: ${widget.categoryName}, type: $selectedType...");
 
       QuerySnapshot productSnapshot = await FirebaseFirestore.instance
-          .collectionGroup('products') // ✅ Fetch products from all users
-          .where('category', isEqualTo: widget.categoryName) // Example: Vegetables
+          .collectionGroup('products')
+          .where('category', isEqualTo: widget.categoryName)
           .where('available', isEqualTo: true)
           .get();
 
@@ -125,22 +125,26 @@ class _CategoryScreenState extends State<CategoryScreen> {
         final data = doc.data() as Map<String, dynamic>?; // ✅ Explicit casting
         if (data == null || !data.containsKey('type')) {
           print("⚠️ Skipping product: Missing 'type' field in ${doc.id}");
-          continue; // Skip this entry if 'type' field is missing
+          continue;
         }
 
         if (data['type'] == selectedType) {
           print("✅ Product Found: ${data['name']} - ₹${data['price']} - Type: ${data['type']}");
 
-          // ✅ Ensure 'quantity' & 'unit' are included
+          // ✅ Convert 'quantity' & 'grams' to integers safely
+          int quantity = int.tryParse(data['quantity'].toString()) ?? 1;
+          int grams = int.tryParse(data['grams'].toString()) ?? 0;
+
           fetchedProducts.add({
-            'id': doc.id, // ✅ Product ID
+            'id': doc.id,
             'name': data['name'],
             'price': data['price'],
             'imageURL': data['imageURL'],
             'discount': data['discount'] ?? 0,
-            'quantity': data['quantity'] ?? "N/A", // ✅ Get quantity dynamically
-            'unit': data['unit'] ?? "N/A", // ✅ Get unit dynamically
-            'cartQuantity': cartItems[doc.id] ?? 0, // ✅ Attach existing cart quantity from Firestore
+            'quantity': quantity,  // ✅ Ensure correct integer storage
+            'unit': data['unit'] ?? "N/A",
+            'grams': grams, // ✅ Store grams properly
+            'cartQuantity': cartItems[doc.id] ?? 0,
           });
         }
       }
@@ -319,72 +323,66 @@ class _CategoryScreenState extends State<CategoryScreen> {
                           child: cartQuantity == 0
                               ? ElevatedButton(
                             onPressed: () {
-                              int baseGrams = (product['unit'] == "Kg") ? 1000 : 1;
+                              int baseGrams = (product['unit'] == "Kg") ? 1000 : int.tryParse(product['quantity'].toString()) ?? 100;
                               _updateCart(productId, product, 1, baseGrams);
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white, // ✅ White background
+                              backgroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(9), // ✅ Rounded corners
-                                side: BorderSide(color: Colors.green, width: 2), // ✅ Green Outline
+                                borderRadius: BorderRadius.circular(9),
+                                side: BorderSide(color: Colors.green, width: 2),
                               ),
-                              padding: EdgeInsets.symmetric(horizontal: 15, vertical: 10), // ✅ Better padding
-                              minimumSize: Size(120, 40), // ✅ Make width match increment/decrement button
+                              minimumSize: Size(120, 40),
                             ),
                             child: Text(
                               "Add to Cart",
                               style: TextStyle(
-                                color: Colors.green, // ✅ Green text
+                                color: Colors.green,
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                           )
                               : Container(
-                            width: double.infinity, // ✅ Same width as "Add to Cart"
-                            height: 45, // ✅ Same height as "Add to Cart"
+                            width: double.infinity,
+                            height: 45,
                             decoration: BoxDecoration(
-                              color: Colors.white, // ✅ White Background
-                              borderRadius: BorderRadius.circular(9), // ✅ Rounded Corners
-                              border: Border.all(color: Colors.green, width: 2), // ✅ Green Outline
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(9),
+                              border: Border.all(color: Colors.green, width: 2),
                             ),
                             child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween, // ✅ Better spacing
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
-                                Expanded(
-                                  child: IconButton(
-                                    icon: Icon(Icons.remove, color: Colors.green, size: 20), // ✅ Green icon
-                                    onPressed: () {
-                                      int baseGrams = (product['unit'] == "Kg") ? 1000 : 1;
-                                      if (cartQuantity > 1) {
-                                        _updateCart(productId, product, cartQuantity - 1, baseGrams);
-                                      } else {
-                                        _removeFromCart(product); // ✅ Removes when quantity is 0
-                                      }
-                                    },
-                                  ),
+                                IconButton(
+                                  icon: Icon(Icons.remove, color: Colors.green, size: 20),
+                                  onPressed: () {
+                                    int baseGrams = (product['unit'] == "Kg") ? 1000 : int.tryParse(product['quantity'].toString()) ?? 100;
+
+                                    if (cartQuantity > 1) {
+                                      _updateCart(productId, product, cartQuantity - 1, baseGrams);
+                                    } else {
+                                      _removeFromCart(product); // ✅ Remove item if quantity is 0
+                                    }
+                                  },
                                 ),
                                 Text(
                                   "$cartQuantity",
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.green, // ✅ Green text
-                                  ),
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green),
                                 ),
-                                Expanded(
-                                  child: IconButton(
-                                    icon: Icon(Icons.add, color: Colors.green, size: 20), // ✅ Green icon
-                                    onPressed: () {
-                                      int baseGrams = (product['unit'] == "Kg") ? 1000 : 1;
-                                      _updateCart(productId, product, cartQuantity + 1, baseGrams);
-                                    },
-                                  ),
+                                IconButton(
+                                  icon: Icon(Icons.add, color: Colors.green, size: 20),
+                                  onPressed: () {
+                                    int baseGrams = (product['unit'] == "Kg") ? 1000 : int.tryParse(product['quantity'].toString()) ?? 100;
+                                    _updateCart(productId, product, cartQuantity + 1, baseGrams);
+                                  },
                                 ),
                               ],
                             ),
                           ),
                         ),
+
+
 
 
 
@@ -550,12 +548,13 @@ class _CategoryScreenState extends State<CategoryScreen> {
       return;
     }
 
-    // ✅ Update UI instantly before Firestore update
+    int totalGrams = totalQuantity * baseGrams;
+
     setState(() {
       if (totalQuantity > 0) {
-        cartItems[productId] = totalQuantity; // ✅ Update UI immediately
+        cartItems[productId] = totalQuantity; // ✅ Update UI
       } else {
-        cartItems.remove(productId); // ✅ Remove from cart UI instantly
+        cartItems.remove(productId); // ✅ Remove from UI when qty reaches 0
       }
     });
 
@@ -565,27 +564,27 @@ class _CategoryScreenState extends State<CategoryScreen> {
         .collection('cart')
         .doc(productId);
 
-    int totalGrams = totalQuantity * baseGrams; // 🔥 Convert quantity to grams
-
-    if (totalQuantity > 0) {
-      print("🛒 Updating ${product['name']} (Qty: $totalQuantity | Grams: $totalGrams) in Firestore...");
-      await cartRef.set({
-        'name': product['name'],
-        'price': product['price'],
-        'quantity': totalQuantity,
-        'grams': totalGrams,
-        'imageURL': product['imageURL'],
-        'unit': product['unit'],
-        'totalQuantity': totalQuantity, // ✅ Track total quantity
-      }, SetOptions(merge: true));
-
-      print("✅ Successfully updated Firestore!");
-    } else {
-      print("🗑 Removing ${product['name']} from Firestore...");
-      await cartRef.delete();
-      print("✅ Removed from Firestore!");
+    try {
+      if (totalQuantity > 0) {
+        print("🛒 Updating ${product['name']} (Qty: $totalQuantity | Grams: $totalGrams) in Firestore...");
+        await cartRef.set({
+          'name': product['name'],
+          'price': product['price'],
+          'quantity': totalQuantity,
+          'grams': totalGrams, // ✅ Store correct grams
+          'imageURL': product['imageURL'],
+          'unit': product['unit'],
+          'totalQuantity': totalQuantity,
+        }, SetOptions(merge: true));
+      } else {
+        print("🗑 Removing ${product['name']} from Firestore...");
+        await cartRef.delete(); // ✅ Remove from Firestore when qty reaches 0
+      }
+    } catch (e) {
+      print("❌ Error updating Firestore: $e");
     }
   }
+
 
 
 
@@ -604,7 +603,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
     print("📢 Adding product to Firestore: ID = $productId, New Qty = $newQuantity");
     int baseGrams = (product['unit'] == "Kg") ? 1000 : 1; // ✅ Determine grams per unit
-    _updateCart(productId, product, newQuantity, baseGrams); // ✅ Pass all 4 arguments
+    _updateCart(productId, product, newQuantity,baseGrams); // ✅ Pass all 4 arguments
 
   }
 
@@ -630,11 +629,11 @@ class _CategoryScreenState extends State<CategoryScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            // 🔹 Convert `quantity` to an integer and store in `totalQuantity`
             int totalQuantity = cartItems[product['id']] ?? 0;
 
-            int baseGrams = (product['unit'] == "Kg") ? 1000 : 1; // 1 Kg = 1000g
-            int grams = totalQuantity * baseGrams; // 🔥 Calculate grams
+            // ✅ Convert Firestore quantity to int and store as default
+            int baseGrams = (product['unit'] == "Kg") ? 1000 : int.tryParse(product['quantity'].toString()) ?? 100;
+            int totalGrams = totalQuantity * baseGrams;
 
             return Padding(
               padding: const EdgeInsets.all(16.0),
@@ -642,24 +641,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // 🔹 Favorite Button (Top Right)
-                  Align(
-                    alignment: Alignment.topRight,
-                    child: IconButton(
-                      icon: Icon(
-                        (product['isFavorite'] ?? false) ? Icons.favorite : Icons.favorite_border,
-                        color: (product['isFavorite'] ?? false) ? Colors.red : Colors.grey,
-                      ),
-                      onPressed: () {
-                        setModalState(() {
-                          product['isFavorite'] = !(product['isFavorite'] ?? false);
-                          _updateFavorite(product['id'], product['isFavorite']);
-                        });
-                      },
-                    ),
-                  ),
-
-                  // 🔹 Product Image
+                  // 🔹 Product Name & Image
                   ClipRRect(
                     borderRadius: BorderRadius.circular(15),
                     child: Image.network(
@@ -668,8 +650,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
                     ),
                   ),
                   SizedBox(height: 10),
-
-                  // 🔹 Product Name & Price
                   Text(product['name'], style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
                   Text('₹${product['price']}', style: TextStyle(color: Colors.green, fontSize: 16)),
                   Text("${product['quantity']} ${product['unit']}",
@@ -677,20 +657,19 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
                   SizedBox(height: 10),
 
-                  // 🔹 Display Grams Based on Quantity
+                  // 🔹 Display Total Grams Properly
                   if (totalQuantity > 0)
                     Text(
-                      "Total: ${grams}g",
+                      "Total: ${totalGrams}g",
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue),
                     ),
 
                   SizedBox(height: 10),
 
-                  // 🔹 Add to Cart & View Cart Row
+                  // 🔹 Add to Cart & Quantity Changer
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // 🔹 View Cart Button (Appears if item is in cart)
                       if (totalQuantity > 0)
                         Expanded(
                           child: ElevatedButton(
@@ -704,22 +683,21 @@ class _CategoryScreenState extends State<CategoryScreen> {
                                 borderRadius: BorderRadius.circular(9),
                                 side: BorderSide(color: Colors.green),
                               ),
-                              minimumSize: Size(double.infinity, 50), // Full-width button
+                              minimumSize: Size(double.infinity, 50),
                             ),
                             child: Text("View Cart", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
                           ),
                         ),
 
-                      SizedBox(width: totalQuantity > 0 ? 10 : 0), // Space only if View Cart is visible
+                      SizedBox(width: totalQuantity > 0 ? 10 : 0),
 
-                      // 🔹 Add to Cart OR - 1 + Buttons
                       Expanded(
                         child: totalQuantity == 0
                             ? ElevatedButton(
                           onPressed: () {
                             setModalState(() {
-                              product['cartQuantity'] = 1; // ✅ Set quantity to 1 when added
-                              _updateCart(product['id'], product, 1, baseGrams); // ✅ Update Firestore
+                              product['cartQuantity'] = 1;
+                              _updateCart(product['id'], product, 1,baseGrams); // ✅ Store correct grams
                             });
                           },
                           style: ElevatedButton.styleFrom(
@@ -727,41 +705,38 @@ class _CategoryScreenState extends State<CategoryScreen> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(9),
                             ),
-                            minimumSize: Size(double.infinity, 50), // Full-width button
+                            minimumSize: Size(double.infinity, 50),
                           ),
                           child: Text("Add to Cart", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                         )
                             : Container(
                           decoration: BoxDecoration(
-                            color: Colors.green,
+                            color: Colors.white,
                             borderRadius: BorderRadius.circular(9),
+                            border: Border.all(color: Colors.green, width: 2),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
                               IconButton(
-                                icon: Icon(Icons.remove, color: Colors.white),
+                                icon: Icon(Icons.remove, color: Colors.green, size: 20),
                                 onPressed: () {
                                   setModalState(() {
-                                    if (product['cartQuantity'] > 1) {
-                                      product['cartQuantity']--; // Decrease quantity
-                                      _updateCart(product['id'], product, product['cartQuantity'], baseGrams);
-
+                                    if (totalQuantity > 1) {
+                                      _updateCart(product['id'], product, totalQuantity - 1,baseGrams);
                                     } else {
-                                      product['cartQuantity'] = 0; // Remove from cart
-                                      _removeFromCart(product);
+                                      _removeFromCart(product); // ✅ Remove item when 0
                                     }
                                   });
                                 },
                               ),
-                              Text("${product['cartQuantity']}",
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                              Text("${totalQuantity}",
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
                               IconButton(
-                                icon: Icon(Icons.add, color: Colors.white),
+                                icon: Icon(Icons.add, color: Colors.green, size: 20),
                                 onPressed: () {
                                   setModalState(() {
-                                    product['cartQuantity']++; // Increase quantity
-                                    _updateCart(product['id'], product, product['cartQuantity'], baseGrams);
+                                    _updateCart(product['id'], product, totalQuantity + 1,baseGrams);
                                   });
                                 },
                               ),
@@ -779,7 +754,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
       },
     );
   }
-
 
 
 
