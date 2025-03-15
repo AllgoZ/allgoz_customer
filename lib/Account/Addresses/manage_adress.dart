@@ -1,6 +1,9 @@
 import 'package:allgoz/Account/Addresses/edit_address.dart';
 import 'package:allgoz/Account/Addresses/new_address.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 
 class ManageAddressesScreen extends StatefulWidget {
   @override
@@ -8,61 +11,119 @@ class ManageAddressesScreen extends StatefulWidget {
 }
 
 class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
-  List<Map<String, dynamic>> addresses = [
-    {
-      "type": "Home",
-      "address": "123, Main Street, City, Country",
-      "isDefault": true,
-    },
-    {
-      "type": "Work",
-      "address": "456, Office Avenue, Business Park",
-      "isDefault": false,
-    },
-  ];
+  String? userPhoneNumber;
+  String? defaultAddressId; // Store the default address ID
 
-  // ✅ Add New Address Function
-  void _addNewAddress() {
-    setState(() {
-      addresses.add({
-        "type": "New Address",
-        "address": "789, New Road, Sample City",
-        "isDefault": false,
-      });
-    });
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserPhoneNumber();
+    _fetchDefaultAddress();
   }
 
-  // ✅ Delete Address Function
-  void _deleteAddress(int index) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text("Delete Address"),
-        content: Text("Are you sure you want to delete this address?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text("Cancel"),
-          ),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                addresses.removeAt(index);
-              });
-              Navigator.pop(context);
-            },
-            child: Text("Delete", style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+  void _fetchUserPhoneNumber() {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null && user.phoneNumber != null) {
+      setState(() {
+        userPhoneNumber = user.phoneNumber;
+      });
+    } else {
+      print("❌ User not logged in or phone number is unavailable!");
+    }
+  }
+
+  Future<void> _fetchDefaultAddress() async {
+    if (userPhoneNumber == null) return;
+    DocumentSnapshot userDoc = await FirebaseFirestore.instance
+        .collection('customers')
+        .doc(userPhoneNumber)
+        .get();
+
+    if (userDoc.exists) {
+      setState(() {
+        defaultAddressId = userDoc['defaultAddress'];
+      });
+    }
+  }
+
+  void _setDefaultAddress(String addressId) async {
+    if (userPhoneNumber == null) return;
+
+    await FirebaseFirestore.instance.collection('customers').doc(userPhoneNumber).update({
+      'defaultAddress': addressId,
+    });
+
+    setState(() {
+      defaultAddressId = addressId;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Default address updated!")),
     );
   }
 
-  // ✅ Set Default Address Function
-  void _setDefaultAddress(int index) {
-    setState(() {
-      for (int i = 0; i < addresses.length; i++) {
-        addresses[i]['isDefault'] = i == index;
+  void _deleteAddress(String addressId) async {
+    if (userPhoneNumber == null) return;
+
+    bool isDefault = addressId == defaultAddressId;
+
+    await FirebaseFirestore.instance
+        .collection('customers')
+        .doc(userPhoneNumber)
+        .collection('addresses')
+        .doc(addressId)
+        .delete();
+
+    if (isDefault) {
+      await FirebaseFirestore.instance.collection('customers').doc(userPhoneNumber).update({
+        'defaultAddress': null,
+      });
+
+      setState(() {
+        defaultAddressId = null;
+      });
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Address deleted!")),
+    );
+
+    setState(() {});
+  }
+
+  void _editAddress(Map<String, dynamic> addressData, String addressId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditAddressScreen(address: addressData),
+      ),
+    ).then((updatedAddress) {
+      if (updatedAddress != null) {
+        FirebaseFirestore.instance
+            .collection('customers')
+            .doc(userPhoneNumber)
+            .collection('addresses')
+            .doc(addressId)
+            .update(updatedAddress);
+
+        setState(() {});
+      }
+    });
+  }
+
+  void _addNewAddress() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => NewAddressScreen()),
+    ).then((newAddress) {
+      if (newAddress != null) {
+        FirebaseFirestore.instance
+            .collection('customers')
+            .doc(userPhoneNumber)
+            .collection('addresses')
+            .add(newAddress);
+
+        setState(() {});
       }
     });
   }
@@ -75,85 +136,93 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
         title: Text("Manage Addresses"),
         centerTitle: true,
       ),
-      body: ListView.builder(
-        itemCount: addresses.length,
-        itemBuilder: (context, index) {
-          final address = addresses[index];
-          return Card(
-            elevation: 4,
-            margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: ListTile(
-              leading: Icon(
-                address['type'] == 'Home'
-                    ? Icons.home
-                    : address['type'] == 'Work'
-                    ? Icons.work
-                    : Icons.location_on,
-                color: Color(0xFF4A90E2),
+      body: userPhoneNumber == null
+          ? Center(child: CircularProgressIndicator())
+          : StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('customers')
+            .doc(userPhoneNumber)
+            .collection('addresses')
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return Center(child: CircularProgressIndicator());
+          }
+
+          var addresses = snapshot.data!.docs;
+
+          if (addresses.isEmpty) {
+            return Center(
+              child: Text(
+                "No addresses found. Add a new address!",
+                style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
-              title: Text(address['type'], style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text(address['address']),
+            );
+          }
 
-              // ✅ Fixed the issue: Single trailing widget
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min, // Keeps the row compact
-                children: [
-                  if (address['isDefault'])
-                    Icon(Icons.check_circle, color: Colors.green), // ✅ Default Address Icon
+          return ListView.builder(
+            itemCount: addresses.length,
+            itemBuilder: (context, index) {
+              var address = addresses[index];
+              var addressData = address.data() as Map<String, dynamic>;
+              String addressId = address.id;
+              bool isDefault = addressId == defaultAddressId;
 
-                  PopupMenuButton<String>(
-                    onSelected: (value) {
-                      if (value == "Edit") {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => EditAddressScreen(address: addresses[index]),
-                          ),
-                        );
-                      } else if (value == "Delete") {
-                        _deleteAddress(index);
-                      } else if (value == "Set Default") {
-                        _setDefaultAddress(index);
-                      }
-                    },
-                    itemBuilder: (BuildContext context) => [
-                      PopupMenuItem(value: "Edit", child: Text("Edit")),
-                      PopupMenuItem(value: "Delete", child: Text("Delete")),
-                      if (!address['isDefault'])
-                        PopupMenuItem(value: "Set Default", child: Text("Set as Default")),
+              return Card(
+                elevation: 4,
+                margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: ListTile(
+                  leading: Icon(
+                    addressData['type'] == 'Home'
+                        ? Icons.home
+                        : addressData['type'] == 'Work'
+                        ? Icons.work
+                        : Icons.location_on,
+                    color: Color(0xFF4A90E2),
+                  ),
+                  title: Text(
+                    addressData['type'],
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    "${addressData['house']}, ${addressData['street']}, ${addressData['city']}, ${addressData['state']} - ${addressData['pincode']}",
+                    style: TextStyle(color: Colors.black87),
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isDefault) Icon(Icons.check_circle, color: Colors.green),
+                      PopupMenuButton<String>(
+                        onSelected: (value) {
+                          if (value == "Edit") {
+                            _editAddress(addressData, addressId);
+                          } else if (value == "Delete") {
+                            _deleteAddress(addressId);
+                          } else if (value == "Set Default") {
+                            _setDefaultAddress(addressId);
+                          }
+                        },
+                        itemBuilder: (BuildContext context) => [
+                          PopupMenuItem(value: "Edit", child: Text("Edit")),
+                          PopupMenuItem(value: "Delete", child: Text("Delete")),
+                          if (!isDefault) PopupMenuItem(value: "Set Default", child: Text("Set as Default")),
+                        ],
+                      ),
                     ],
                   ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           );
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => NewAddressScreen()),
-          ).then((newAddress) {
-            if (newAddress != null) {
-              setState(() {
-                addresses.add(newAddress); // ✅ Add the new address to the list
-              });
-            }
-          });
-        },
+        onPressed: _addNewAddress,
         backgroundColor: Colors.green,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Icon(Icons.add, size: 28),
       ),
     );
   }
-}
-
-void main() {
-  runApp(MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: ManageAddressesScreen(),
-  ));
 }

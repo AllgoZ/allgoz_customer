@@ -1,4 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 
 class NewAddressScreen extends StatefulWidget {
   @override
@@ -9,47 +12,92 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _townController = TextEditingController();
-  final TextEditingController _pincodeController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _altPhoneController = TextEditingController();
+  final TextEditingController _houseController = TextEditingController();
+  final TextEditingController _streetController = TextEditingController();
   final TextEditingController _landmarkController = TextEditingController();
+  final TextEditingController _cityController = TextEditingController();
+  final TextEditingController _stateController = TextEditingController();
+  final TextEditingController _pincodeController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
 
-  String _addressType = 'Home'; // Default Address Type
+  String _addressType = 'Home'; // Default selection
+  bool _setAsDefault = false;
 
-  // ✅ Dummy location for now
-  void _getCurrentLocation() {
-    setState(() {
-      _locationController.text = "Latitude: 12.9716, Longitude: 77.5946";
-    });
-  }
-
-  void _saveAddress() {
-    if (_formKey.currentState!.validate()) {
-      // ✅ Collect the data without passing it anywhere for now
-      final collectedData = {
-        "name": _nameController.text.trim(),
-        "town": _townController.text.trim(),
-        "pincode": _pincodeController.text.trim(),
-        "phone": _phoneController.text.trim(),
-        "altPhone": _altPhoneController.text.trim(),
-        "landmark": _landmarkController.text.trim(),
-        "location": _locationController.text.trim(),
-        "type": _addressType,
-        "isDefault": false,
-      };
-
-      // ✅ Just for debugging to see data (can be removed later)
-      print(collectedData);
-
-      // ✅ Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Address saved successfully!')),
+  // ✅ Fetch GPS Location
+  void _getCurrentLocation() async {
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
       );
 
-      // ✅ Navigate back without passing data
-      Navigator.pop(context);
+      setState(() {
+        _locationController.text = "${position.latitude}, ${position.longitude}";
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Location fetched successfully!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to fetch location. Enable GPS!')),
+      );
+    }
+  }
+
+  // ✅ Save Address to Firestore
+  Future<void> _saveAddress() async {
+    if (_formKey.currentState!.validate()) {
+      String? userPhone = FirebaseAuth.instance.currentUser?.phoneNumber;
+      if (userPhone == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("User not logged in!")),
+        );
+        return;
+      }
+
+      Map<String, dynamic> addressData = {
+        "name": _nameController.text.trim(),
+        "phone": _phoneController.text.trim(),
+        "altPhone": _altPhoneController.text.trim(),
+        "house": _houseController.text.trim(),
+        "street": _streetController.text.trim(),
+        "landmark": _landmarkController.text.trim(),
+        "city": _cityController.text.trim(),
+        "state": _stateController.text.trim(),
+        "pincode": _pincodeController.text.trim(),
+        "location": _locationController.text.trim(),
+        "type": _addressType,
+        "isDefault": _setAsDefault,
+      };
+
+      try {
+        DocumentReference newAddressRef = FirebaseFirestore.instance
+            .collection('customers')
+            .doc(userPhone)
+            .collection('addresses')
+            .doc();
+
+        await newAddressRef.set(addressData);
+
+        if (_setAsDefault) {
+          await FirebaseFirestore.instance
+              .collection('customers')
+              .doc(userPhone)
+              .update({"defaultAddress": newAddressRef.id});
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Address saved successfully!")),
+        );
+
+        Navigator.pop(context);
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error saving address: $e")),
+        );
+      }
     }
   }
 
@@ -68,13 +116,16 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
           child: ListView(
             children: [
               _buildTextField("Full Name", _nameController),
-              _buildTextField("Town/City", _townController),
-              _buildTextField("Pincode", _pincodeController, keyboardType: TextInputType.number),
               _buildTextField("Phone Number", _phoneController, keyboardType: TextInputType.phone),
-              _buildTextField("Alternate Phone", _altPhoneController, keyboardType: TextInputType.phone),
+              _buildTextField("Alternate Phone (Optional)", _altPhoneController, keyboardType: TextInputType.phone),
+              _buildTextField("House/Flat No, Building Name", _houseController),
+              _buildTextField("Street & Locality", _streetController),
               _buildTextField("Landmark (Optional)", _landmarkController),
-              _buildTextField("Current Location", _locationController, readOnly: true),
+              _buildTextField("City", _cityController),
+              _buildTextField("State", _stateController),
+              _buildTextField("Pincode", _pincodeController, keyboardType: TextInputType.number),
 
+              _buildTextField("Current Location", _locationController, readOnly: true),
               ElevatedButton(
                 onPressed: _getCurrentLocation,
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
@@ -87,26 +138,26 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
               DropdownButtonFormField<String>(
                 value: _addressType,
                 items: ['Home', 'Work', 'Other'].map((type) {
-                  return DropdownMenuItem(
-                    value: type,
-                    child: Text(type),
-                  );
+                  return DropdownMenuItem(value: type, child: Text(type));
                 }).toList(),
+                onChanged: (value) => setState(() => _addressType = value!),
+                decoration: InputDecoration(labelText: 'Address Type', border: OutlineInputBorder()),
+              ),
+
+              // ✅ Set as Default Address
+              SwitchListTile(
+                title: Text("Set as Default Address"),
+                value: _setAsDefault,
                 onChanged: (value) {
                   setState(() {
-                    _addressType = value ?? 'Home';
+                    _setAsDefault = value;
                   });
                 },
-                decoration: InputDecoration(
-                  labelText: 'Address Type',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) =>
-                value == null || value.isEmpty ? "Please select an address type" : null,
               ),
 
               SizedBox(height: 20),
 
+              // ✅ Save Button
               ElevatedButton(
                 onPressed: _saveAddress,
                 style: ElevatedButton.styleFrom(
@@ -138,10 +189,7 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
           }
           return null;
         },
-        decoration: InputDecoration(
-          labelText: label,
-          border: OutlineInputBorder(),
-        ),
+        decoration: InputDecoration(labelText: label, border: OutlineInputBorder()),
       ),
     );
   }
