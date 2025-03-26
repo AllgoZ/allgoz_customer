@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:geolocator/geolocator.dart';
 
 
 class CheckoutScreen extends StatefulWidget {
@@ -203,7 +204,10 @@ class DeliveryScreen extends StatefulWidget {
 
   @override
   _DeliveryScreenState createState() => _DeliveryScreenState();
+
 }
+double? latitude;
+double? longitude;
 
 class _DeliveryScreenState extends State<DeliveryScreen>
     with SingleTickerProviderStateMixin {
@@ -222,6 +226,8 @@ class _DeliveryScreenState extends State<DeliveryScreen>
   void initState() {
     super.initState();
     _fetchUserDetails();
+    _getCurrentLocation();
+
 
     _controller = AnimationController(
       duration: const Duration(milliseconds: 2500),
@@ -233,6 +239,30 @@ class _DeliveryScreenState extends State<DeliveryScreen>
     );
 
     _controller.forward();
+  }
+  Future<void> _getCurrentLocation() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return;
+    }
+
+    Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+    setState(() {
+      latitude = position.latitude;
+      longitude = position.longitude;
+    });
   }
 
   void _fetchUserDetails() async {
@@ -322,24 +352,40 @@ class _DeliveryScreenState extends State<DeliveryScreen>
       return;
     }
 
-    await _updateDeliveryDetails(); // ✅ Save before placing order
+    await _updateDeliveryDetails(); // Save delivery preferences
 
     try {
-      DocumentReference customerOrderRef =
-      FirebaseFirestore.instance.collection('orders').doc(userUID);
+      final todayStr = DateTime.now().toLocal().toString().substring(0, 10).replaceAll('-', '');
 
-      // ✅ Ensure the customer's document exists and stores their name
+      final counterRef = FirebaseFirestore.instance.collection('orderCounter').doc(todayStr);
+      final counterSnap = await counterRef.get();
+
+      int counter = 1;
+      if (counterSnap.exists) {
+        counter = (counterSnap.data()?['count'] ?? 0) + 1;
+      }
+
+      // Update counter in Firestore
+      await counterRef.set({'count': counter});
+
+      // Generate order ID
+      final customOrderId = 'ORD-$todayStr-${counter.toString().padLeft(6, '0')}';
+
+      final customerOrderRef = FirebaseFirestore.instance.collection('orders').doc(userUID);
+
+      // Ensure customer document stores name
       await customerOrderRef.set({
-        'name': customerName, // ✅ Store customer's name in top-level document
+        'name': customerName,
       }, SetOptions(merge: true));
 
-      // ✅ Store the order inside the customer's UID
-      DocumentReference orderDoc =
-      customerOrderRef.collection('orders').doc();
+      // Create order with customOrderId
+      final orderDoc = customerOrderRef.collection('orders').doc(customOrderId);
 
       await orderDoc.set({
+        'orderId': customOrderId,
         'userPhoneNumber': userPhoneNumber,
-        'customerName': customerName, // ✅ Add Customer Name
+        'customerName': customerName,
+        'customerUID': userUID,
         'items': widget.cartItems,
         'totalAmount': widget.cartItems
             .fold<double>(0, (sum, item) => sum + (item['price'] * item['quantity']))
@@ -347,12 +393,15 @@ class _DeliveryScreenState extends State<DeliveryScreen>
         'paymentMethod': selectedPaymentMethod,
         'deliveryDay': selectedDeliveryDay,
         'deliveryAddress': selectedAddress,
-        'status': 'Pending',
+        'status': 'New',
         'orderDate': Timestamp.now(),
+        'orderLocation': {
+          'latitude': latitude,
+          'longitude': longitude,
+        },
       });
 
-      print("✅ Order Placed! Order ID: ${orderDoc.id}");
-
+      // Clear cart
       FirebaseFirestore.instance
           .collection('customers')
           .doc(userPhoneNumber)
@@ -378,6 +427,7 @@ class _DeliveryScreenState extends State<DeliveryScreen>
       print("❌ Error placing order: $e");
     }
   }
+
 
 
   @override
