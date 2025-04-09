@@ -1,10 +1,12 @@
 import 'package:allgoz/Account/Addresses/manage_adress.dart';
 import 'package:allgoz/Home/home.dart';
+import 'package:allgoz/services/delivery_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
+
 
 
 class CheckoutScreen extends StatefulWidget {
@@ -344,7 +346,7 @@ class _DeliveryScreenState extends State<DeliveryScreen>
   }
 
   void _placeOrder() async {
-    if (userUID == null || userPhoneNumber == null || selectedAddress == null) {
+    if (userUID == null || userPhoneNumber == null || selectedAddress == null || addressDetails == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text("Please select or add an address."),
         backgroundColor: Colors.red,
@@ -355,8 +357,23 @@ class _DeliveryScreenState extends State<DeliveryScreen>
     await _updateDeliveryDetails(); // Save delivery preferences
 
     try {
-      final todayStr = DateTime.now().toLocal().toString().substring(0, 10).replaceAll('-', '');
+      // ✅ Step 1: Delivery Partner Feasibility Check
+      final result = await DeliveryService.checkDeliveryFeasibilityAndPlaceOrder(
+        sellerUid: '344y6ZUTzuWRfjFMzR5mImLNAmt1', // Replace with actual seller UID
+        customerPhoneNumber: userPhoneNumber!,
+        addressId: addressDetails!['id'] ?? 'default',
+      );
 
+      if (!result['success']) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(result['message']),
+          backgroundColor: Colors.red,
+        ));
+        return;
+      }
+
+      // ✅ Step 2: Generate unique order ID
+      final todayStr = DateTime.now().toLocal().toString().substring(0, 10).replaceAll('-', '');
       final counterRef = FirebaseFirestore.instance.collection('orderCounter').doc(todayStr);
       final counterSnap = await counterRef.get();
 
@@ -364,54 +381,50 @@ class _DeliveryScreenState extends State<DeliveryScreen>
       if (counterSnap.exists) {
         counter = (counterSnap.data()?['count'] ?? 0) + 1;
       }
-
-      // Update counter in Firestore
       await counterRef.set({'count': counter});
 
-      // Generate order ID
       final customOrderId = 'ORD-$todayStr-${counter.toString().padLeft(6, '0')}';
+      final customerOrderRef = FirebaseFirestore.instance
+          .collection('orders')
+          .doc(userUID)
+          .collection('orders')
+          .doc(customOrderId);
 
-      final customerOrderRef = FirebaseFirestore.instance.collection('orders').doc(userUID);
-
-      // Ensure customer document stores name
+      // ✅ Step 3: Store order
       await customerOrderRef.set({
-        'name': customerName,
-      }, SetOptions(merge: true));
-
-      // Create order with customOrderId
-      final orderDoc = customerOrderRef.collection('orders').doc(customOrderId);
-
-      await orderDoc.set({
         'orderId': customOrderId,
         'userPhoneNumber': userPhoneNumber,
         'customerName': customerName,
         'customerUID': userUID,
         'items': widget.cartItems,
-        'totalAmount': widget.cartItems
-            .fold<double>(0, (sum, item) => sum + (item['price'] * item['quantity']))
-            .toInt(),
+        'totalAmount': widget.cartItems.fold<double>(
+          0,
+              (sum, item) => sum + (item['price'] * item['quantity']),
+        ).toInt(),
         'paymentMethod': selectedPaymentMethod,
         'deliveryDay': selectedDeliveryDay,
         'deliveryAddress': selectedAddress,
         'status': 'New',
         'orderDate': Timestamp.now(),
-        'orderLocation': {
-          'latitude': latitude,
-          'longitude': longitude,
-        },
+        'updatedBy': 'customer',
+
+        // ✅ Added new fields
+        'location': result['location'],
+        'deliveryPartnerUid': result['deliveryPartnerUid'],
+        'distances': result['distances'],
+        'mapLinks': result['mapLinks'], // ✅ MAP LINKS added here
       });
 
-      // Clear cart
-      FirebaseFirestore.instance
+      // ✅ Step 4: Clear cart
+      final cartRef = FirebaseFirestore.instance
           .collection('customers')
           .doc(userPhoneNumber)
-          .collection('cart')
-          .get()
-          .then((snapshot) {
-        for (var doc in snapshot.docs) {
-          doc.reference.delete();
-        }
-      });
+          .collection('cart');
+
+      final cartItems = await cartRef.get();
+      for (var doc in cartItems.docs) {
+        await doc.reference.delete();
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text("Your order has been placed successfully!"),
@@ -425,6 +438,10 @@ class _DeliveryScreenState extends State<DeliveryScreen>
       );
     } catch (e) {
       print("❌ Error placing order: $e");
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text("Order failed: $e"),
+        backgroundColor: Colors.red,
+      ));
     }
   }
 
