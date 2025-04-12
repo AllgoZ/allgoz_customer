@@ -41,7 +41,7 @@ class _HomePageState extends State<HomePage> {
       QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('categories').get();
       setState(() {
         categories = snapshot.docs.map((doc) => {
-          'id': doc.id, // ✅ Store categoryId for navigation
+          'id': doc.id,
           'name': doc['name'],
           'image': doc['image'],
         }).toList();
@@ -50,7 +50,6 @@ class _HomePageState extends State<HomePage> {
       print("Error fetching categories: $e");
     }
   }
-
 
   int _selectedIndex = 0;
   void _onItemTapped(int index) {
@@ -117,53 +116,41 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+
   Widget _buildCategoryCard(String displayTitle, String imagePath, String categoryId, BuildContext context) {
+    double width = MediaQuery.of(context).size.width;
     return GestureDetector(
       onTap: () {
-        // Extract only the English part (before the "/")
         String categoryKey = displayTitle.split('/')[0].trim();
-
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => CategoryScreen(categoryName: categoryKey), // ✅ Pass only English name
+            builder: (context) => CategoryScreen(categoryName: categoryKey),
           ),
         );
       },
       child: Card(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 12,
         shadowColor: Colors.black45,
         child: Container(
-          width: 170,
-          height: 180,
-          padding: EdgeInsets.all(16),
+          width: width * 0.42,
+          height: width * 0.42,
+          padding: EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 10,
-                offset: Offset(0, 6),
-              ),
-            ],
+            boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 6))],
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.network(imagePath, height: 80, fit: BoxFit.cover), // ✅ Use Network Image
+              Image.network(imagePath, height: width * 0.2, fit: BoxFit.cover),
               SizedBox(height: 10),
               Text(
-                displayTitle, // ✅ Display full name with Tamil text
+                displayTitle,
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'Poppins',
-                ),
+                style: TextStyle(fontSize: width * 0.04, fontWeight: FontWeight.bold, fontFamily: 'Poppins'),
               ),
             ],
           ),
@@ -172,17 +159,15 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-
-
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final height = MediaQuery.of(context).size.height;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Color(0xFF4A90E2),
-        title: Text(
-          'AllGoZ',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, fontFamily: 'Poppins', color: Colors.white),
-        ),
+        title: Text('AllGoZ', style: TextStyle(fontSize: width * 0.06, fontWeight: FontWeight.bold, fontFamily: 'Poppins', color: Colors.white)),
         centerTitle: true,
         actions: [
           IconButton(icon: Icon(Icons.video_collection_rounded, color: Colors.white), onPressed: () {}),
@@ -192,45 +177,33 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(width * 0.04),
         child: Column(
           children: [
             Container(
-              padding: EdgeInsets.symmetric(horizontal: 16),
+              padding: EdgeInsets.symmetric(horizontal: width * 0.04),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(30),
-                boxShadow: [
-                  BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 4)),
-                ],
+                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 4))],
               ),
               child: TextField(
-                onChanged: (value) {
-                  setState(() {
-                    searchQuery = value;
-                  });
-                },
+                onChanged: (value) => setState(() => searchQuery = value),
                 decoration: InputDecoration(hintText: 'Search...', border: InputBorder.none, icon: Icon(Icons.search)),
               ),
             ),
-            SizedBox(height: 16),
+            SizedBox(height: height * 0.02),
             Container(
-              height: 200,
+              height: height * 0.23,
               width: double.infinity,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(color: Color(0xFFB0B1B4), width: 2),
                 color: Colors.grey[300],
-                boxShadow: [
-                  BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4)),
-                ],
+                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4))],
               ),
               child: PageView(
-                onPageChanged: (index) {
-                  setState(() {
-                    _currentPage = index;
-                  });
-                },
+                onPageChanged: (index) => setState(() => _currentPage = index),
                 children: [
                   ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.asset('assets/banner/banner5.png', fit: BoxFit.cover)),
                   ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.asset('assets/banner/banner5.png', fit: BoxFit.cover)),
@@ -238,7 +211,7 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
             ),
-            SizedBox(height: 8),
+            SizedBox(height: height * 0.01),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
@@ -251,33 +224,29 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
-            SizedBox(height: 16),
+            SizedBox(height: height * 0.02),
             Expanded(
               child: GridView.builder(
                 itemCount: categories.length,
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  crossAxisSpacing: 13,
-                  mainAxisSpacing: 13,
+                  crossAxisSpacing: width * 0.03,
+                  mainAxisSpacing: width * 0.03,
                   childAspectRatio: 0.9,
                 ),
                 itemBuilder: (context, index) {
                   return _buildCategoryCard(
                     categories[index]['name'],
                     categories[index]['image'],
-                    categories[index]['id'], // ✅ Pass categoryId
+                    categories[index]['id'],
                     context,
                   );
                 },
               ),
             ),
-
-
           ],
         ),
       ),
-
-
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         selectedItemColor: Color(0xFF4A90E2),

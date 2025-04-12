@@ -1,7 +1,11 @@
+import 'package:allgoz/Cart/Checkout/checkout.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:allgoz/Cart/cart.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shimmer/shimmer.dart';
+
+
 class CategoryScreen extends StatefulWidget {
   final String categoryName; // ✅ Passed from home.dart
   const CategoryScreen({super.key, required this.categoryName});
@@ -11,6 +15,8 @@ class CategoryScreen extends StatefulWidget {
 }
 
 class _CategoryScreenState extends State<CategoryScreen> {
+  bool _isLoading = true;
+
   List<Map<String, dynamic>> categories = [];
   List<Map<String, dynamic>> products = [];
   String selectedType = ""; // Track selected type
@@ -72,7 +78,21 @@ class _CategoryScreenState extends State<CategoryScreen> {
   }
 
 
-
+  Widget _buildShimmerCard(double scaleFactor) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: Container(
+        margin: EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        height: 200 * scaleFactor,
+        width: double.infinity,
+      ),
+    );
+  }
 
   /// ✅ Fetch Types (Left Sidebar) from Firestore
   Future<void> _fetchTypes() async {
@@ -110,9 +130,11 @@ class _CategoryScreenState extends State<CategoryScreen> {
   /// ✅ Fetch Products based on Selected Type
   /// ✅ Fetch Products based on Selected Type
   Future<void> _fetchProducts() async {
-    try {
-      print("📢 Fetching products for category: ${widget.categoryName}, type: $selectedType...");
+    setState(() {
+      _isLoading = true;
+    });
 
+    try {
       QuerySnapshot productSnapshot = await FirebaseFirestore.instance
           .collectionGroup('products')
           .where('category', isEqualTo: widget.categoryName)
@@ -122,28 +144,19 @@ class _CategoryScreenState extends State<CategoryScreen> {
       List<Map<String, dynamic>> fetchedProducts = [];
 
       for (var doc in productSnapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>?; // ✅ Explicit casting
-        if (data == null || !data.containsKey('type')) {
-          print("⚠️ Skipping product: Missing 'type' field in ${doc.id}");
-          continue;
-        }
+        final data = doc.data() as Map<String, dynamic>?;
 
+        if (data == null || !data.containsKey('type')) continue;
         if (data['type'] == selectedType) {
-          print("✅ Product Found: ${data['name']} - ₹${data['price']} - Type: ${data['type']}");
-
-          // ✅ Convert 'quantity' & 'grams' to integers safely
-          int quantity = int.tryParse(data['quantity'].toString()) ?? 1;
-          int grams = int.tryParse(data['grams'].toString()) ?? 0;
-
           fetchedProducts.add({
             'id': doc.id,
             'name': data['name'],
             'price': data['price'],
             'imageURL': data['imageURL'],
             'discount': data['discount'] ?? 0,
-            'quantity': quantity,  // ✅ Ensure correct integer storage
+            'quantity': int.tryParse(data['quantity'].toString()) ?? 1,
             'unit': data['unit'] ?? "N/A",
-            'grams': grams, // ✅ Store grams properly
+            'grams': int.tryParse(data['grams'].toString()) ?? 0,
             'cartQuantity': cartItems[doc.id] ?? 0,
           });
         }
@@ -151,11 +164,13 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
       setState(() {
         products = fetchedProducts;
-        print("✅ Final Product List (${products.length} items): $products");
+        _isLoading = false;
       });
-
     } catch (e) {
       print("❌ Error fetching products: $e");
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -166,44 +181,56 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final scaleFactor = screenWidth / 390; // Reference width (e.g., iPhone 12)
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.categoryName),
-        backgroundColor: Color(0xFF4A90E2),
+        title: Text(
+          widget.categoryName,
+          style: TextStyle(fontSize: 18 * scaleFactor),
+        ),
+        backgroundColor: const Color(0xFF4A90E2),
         actions: [
-          IconButton(icon: Icon(Icons.shopping_cart), onPressed: () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => CartScreen()));
-          }),
+          IconButton(
+            icon: Icon(Icons.shopping_cart, size: 24 * scaleFactor),
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => CartScreen()));
+            },
+          ),
         ],
       ),
       body: Row(
         children: [
-          /// 🔹 Left Sidebar (Types)
+          /// 🔹 Left Sidebar
           Container(
-            width: 100,
-            color: Color(0xFFE3F2FD),
+            width: screenWidth * 0.25,
+            color: const Color(0xFFE3F2FD),
             child: ListView.builder(
               itemCount: categories.length,
               itemBuilder: (context, index) {
                 return GestureDetector(
                   onTap: () {
-                    print("📢 Selected Type: ${categories[index]['name']}"); // ✅ Debug type selection
                     setState(() {
                       selectedType = categories[index]['name'];
-                      _fetchProducts(); // Fetch products for selected type
+                      _fetchProducts();
                     });
                   },
                   child: Container(
                     color: selectedType == categories[index]['name']
                         ? Colors.blue.shade100
                         : Colors.transparent,
-                    padding: EdgeInsets.all(8),
+                    padding: EdgeInsets.all(8 * scaleFactor),
                     child: Column(
                       children: [
-                        Image.network(categories[index]['image'], height: 50),
-                        Text(categories[index]['name'],
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        Image.network(categories[index]['image'], height: 50 * scaleFactor),
+                        SizedBox(height: 4 * scaleFactor),
+                        Text(
+                          categories[index]['name'],
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14 * scaleFactor),
+                        ),
                       ],
                     ),
                   ),
@@ -212,21 +239,35 @@ class _CategoryScreenState extends State<CategoryScreen> {
             ),
           ),
 
+          /// 🔹 Product Grid
           Expanded(
-            child: products.isEmpty
-                ? Center(child: Text("No products found", style: TextStyle(fontSize: 18)))
-                : GridView.builder(
+            child: _isLoading
+                ? GridView.builder(
+              padding: EdgeInsets.all(8 * scaleFactor),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: 0.53, // Adjusted to prevent overflow
+                crossAxisCount: screenWidth < 500 ? 2 : 3,
+                crossAxisSpacing: 10 * scaleFactor,
+                mainAxisSpacing: 10 * scaleFactor,
+                childAspectRatio: 0.46,
+              ),
+              itemCount: 6, // Number of shimmer cards
+              itemBuilder: (context, index) => _buildShimmerCard(scaleFactor),
+            )
+                : products.isEmpty
+                ? Center(child: Text("No products found"))
+                : GridView.builder(
+              padding: EdgeInsets.all(8 * scaleFactor),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: screenWidth < 500 ? 2 : 3,
+                crossAxisSpacing: 10 * scaleFactor,
+                mainAxisSpacing: 10 * scaleFactor,
+                childAspectRatio: 0.46, // Adjusted to fix overflow
               ),
               itemCount: products.length,
               itemBuilder: (context, index) {
                 final product = products[index];
-                String productId = product['id'];
-                int cartQuantity = cartItems[productId] ?? 0; // ✅ Get quantity from Firestore
+                final productId = product['id'];
+                final cartQuantity = cartItems[productId] ?? 0;
 
                 return GestureDetector(
                   onTap: () => _showBottomSheet(context, product),
@@ -238,154 +279,154 @@ class _CategoryScreenState extends State<CategoryScreen> {
                         BoxShadow(
                           color: Colors.black12,
                           blurRadius: 6,
-                          offset: Offset(0, 4),
+                          offset: const Offset(0, 6),
                         ),
                       ],
                     ),
+                    padding: EdgeInsets.all(screenWidth * 0.025),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        // 🔹 Product Image with Discount Badge
+                        /// Image with discount
                         Stack(
                           children: [
                             ClipRRect(
-                              borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
                               child: Image.network(
                                 product['imageURL'],
-                                height: 120,
+                                height: screenHeight * 0.12,
                                 width: double.infinity,
                                 fit: BoxFit.cover,
                               ),
                             ),
-                            if (product['discount'] > 0) // 🔹 Show discount badge only if applicable
+                            if (product['discount'] > 0)
                               Positioned(
                                 top: 5,
                                 left: 5,
                                 child: Container(
-                                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: Colors.red,
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
                                     "${product['discount']}% Off",
-                                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12 * scaleFactor),
                                   ),
                                 ),
                               ),
                           ],
                         ),
+                        SizedBox(height: 6 * scaleFactor),
 
-                        SizedBox(height: 8),
-
-                        // 🔹 Product Name
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 6),
-                          child: Text(
-                            product['name'],
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-
-                        // 🔹 Quantity & Unit
+                        /// Product Name
                         Text(
-                          "${product['quantity']} ${product['unit']}", // ✅ Show quantity dynamically
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
+                          product['name'],
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14 * scaleFactor),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
+                        SizedBox(height: 4 * scaleFactor),
 
-                        // 🔹 Price
+                        /// Quantity
+                        Text(
+                          "${product['quantity']} ${product['unit']}",
+                          style: TextStyle(fontSize: 14 * scaleFactor, color: Colors.grey, fontWeight: FontWeight.bold,),
+                        ),
+                        SizedBox(height: 4 * scaleFactor),
+
+                        /// Price
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
                               "₹${product['price']}",
-                              style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                              style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 14 * scaleFactor),
                             ),
                             SizedBox(width: 5),
-                            if (product['originalPrice'] != null) // Strike-through price if available
+                            if (product['originalPrice'] != null)
                               Text(
                                 "₹${product['originalPrice']}",
                                 style: TextStyle(
                                   decoration: TextDecoration.lineThrough,
                                   color: Colors.grey,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12 * scaleFactor,
                                 ),
                               ),
                           ],
                         ),
+                        SizedBox(height: 6 * scaleFactor),
 
-                        Spacer(), // Push Add to Cart button to bottom
-
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8.0),
-                          child: cartQuantity == 0
-                              ? ElevatedButton(
-                            onPressed: () {
-                              int baseGrams = (product['unit'] == "Kg") ? 1000 : int.tryParse(product['quantity'].toString()) ?? 100;
-                              _updateCart(productId, product, 1, baseGrams);
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(9),
-                                side: BorderSide(color: Colors.green, width: 2),
-                              ),
-                              minimumSize: Size(120, 40),
-                            ),
-                            child: Text(
-                              "Add to Cart",
-                              style: TextStyle(
-                                color: Colors.green,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          )
-                              : Container(
-                            width: double.infinity,
-                            height: 45,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
+                        /// Add to Cart
+                        cartQuantity == 0
+                            ? ElevatedButton(
+                          onPressed: () {
+                            int baseGrams = (product['unit'] == "Kg") ? 1000 : int.tryParse(product['quantity'].toString()) ?? 100;
+                            _updateCart(productId, product, 1, baseGrams);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(9),
-                              border: Border.all(color: Colors.green, width: 2),
+                              side: const BorderSide(color: Colors.green,),
                             ),
+                            minimumSize: Size(screenWidth * 0.4, screenHeight * 0.049),
+                          ),
+                          child: Text("ADD",
+                              style: TextStyle(color: Colors.green, fontSize: 15 * scaleFactor, fontWeight: FontWeight.bold)),
+                        )
+                            : Container(
+                          height: screenHeight * 0.049,
+                          width: screenWidth * 0.38,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(9),
+                            border: Border.all(color: Colors.green, width: 2),
+                          ),
+                          padding: EdgeInsets.symmetric(horizontal: 4 * scaleFactor), // optional
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
                                 IconButton(
-                                  icon: Icon(Icons.remove, color: Colors.green, size: 20),
+                                  icon: const Icon(Icons.remove, color: Colors.green),
+                                  iconSize: 25 * scaleFactor,
                                   onPressed: () {
-                                    int baseGrams = (product['unit'] == "Kg") ? 1000 : int.tryParse(product['quantity'].toString()) ?? 100;
-
+                                    int baseGrams = (product['unit'] == "Kg")
+                                        ? 1000
+                                        : int.tryParse(product['quantity'].toString()) ?? 100;
                                     if (cartQuantity > 1) {
                                       _updateCart(productId, product, cartQuantity - 1, baseGrams);
                                     } else {
-                                      _removeFromCart(product); // ✅ Remove item if quantity is 0
+                                      _removeFromCart(product);
                                     }
                                   },
                                 ),
                                 Text(
                                   "$cartQuantity",
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green),
+                                  style: TextStyle(
+                                    fontSize: 25 * scaleFactor,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green,
+                                  ),
                                 ),
                                 IconButton(
-                                  icon: Icon(Icons.add, color: Colors.green, size: 20),
+                                  icon: const Icon(Icons.add, color: Colors.green),
+                                  iconSize: 25 * scaleFactor,
                                   onPressed: () {
-                                    int baseGrams = (product['unit'] == "Kg") ? 1000 : int.tryParse(product['quantity'].toString()) ?? 100;
+                                    int baseGrams = (product['unit'] == "Kg")
+                                        ? 1000
+                                        : int.tryParse(product['quantity'].toString()) ?? 100;
                                     _updateCart(productId, product, cartQuantity + 1, baseGrams);
                                   },
                                 ),
                               ],
                             ),
                           ),
-                        ),
-
-
-
-
-
+                        )
 
                       ],
                     ),
@@ -394,72 +435,51 @@ class _CategoryScreenState extends State<CategoryScreen> {
               },
             ),
           ),
-
-
         ],
       ),
       bottomNavigationBar: cartItems.isNotEmpty
-          ? Container(
-        decoration: BoxDecoration(
-          color: Colors.white, // ✅ White background for a clean look
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)), // ✅ Rounded top corners
-          border: Border.all(color: Colors.grey, width: 2), // ✅ Green outline
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black12,
-              blurRadius: 10,
-              offset: Offset(0, -4), // ✅ Creates a floating effect
-            ),
-          ],
-        ),
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10), // ✅ Even padding
-        height: 68, // ✅ Increased height for a premium feel
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // ✅ Total Items in Cart (Left Side)
-            Text(
-              "${cartItems.values.fold(0, (sum, item) => sum + item)} Items",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87, // ✅ Slightly darker text for readability
+          ? SafeArea(
+        child: Container(
+          height: 70 * scaleFactor,
+          padding: EdgeInsets.symmetric(horizontal: 16 * scaleFactor),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: Colors.grey)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "${cartItems.values.fold(0, (sum, item) => sum + item)} Items",
+                style: TextStyle(fontSize: 16 * scaleFactor, fontWeight: FontWeight.bold),
               ),
-            ),
-
-            // ✅ Styled "View Cart" Button
-            ElevatedButton(
-              onPressed: () {
-                _showCartModal(context); // ✅ Open Cart Modal
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green, // ✅ White background
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(9), // ✅ Rounded Corners
-                  // side: BorderSide(color: Colors.white, width: 2), // ✅ Green Outline
+              ElevatedButton(
+                onPressed: () {
+                  _showCartModal(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  padding: EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12), // ✅ More padding for a premium feel
-                minimumSize: Size(130, 45), // ✅ Fixed button size
+                child: Text("View Cart", style: TextStyle(fontSize: 14 * scaleFactor,color: Colors.white)),
               ),
-              child: Text(
-                "View Cart",
-                style: TextStyle(
-                  color: Colors.white, // ✅ Green Text
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       )
           : null,
-
-
-
     );
   }
+
+
   void _showCartModal(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final scaleFactor = screenWidth / 390; // Reference width (e.g., iPhone 12)
+
     if (userPhoneNumber == null) {
       print("User phone number is null, can't show cart modal");
       return;
@@ -517,8 +537,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
                   // 🔹 Checkout Button
                   ElevatedButton(
                     onPressed: () {
-                      Navigator.pop(context); // ✅ Close modal before navigating
-                      // Implement Checkout Screen Navigation Here
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => CheckoutScreen()));
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
@@ -527,7 +546,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
                       ),
                       minimumSize: Size(double.infinity, 50), // ✅ Full-width button
                     ),
-                    child: Text("Proceed to Checkout", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    child: Text("Proceed to Checkout", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold,fontSize: 18)),
                   ),
                 ],
               ),
@@ -713,13 +732,13 @@ class _CategoryScreenState extends State<CategoryScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(9),
-                            border: Border.all(color: Colors.green, width: 2),
+                            border: Border.all(color: Colors.green, width: 2,),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
                               IconButton(
-                                icon: Icon(Icons.remove, color: Colors.green, size: 20),
+                                icon: Icon(Icons.remove, color: Colors.green, size: 20,),
                                 onPressed: () {
                                   setModalState(() {
                                     if (totalQuantity > 1) {
