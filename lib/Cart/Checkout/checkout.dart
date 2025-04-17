@@ -6,6 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:allgoz/services/delivery_service.dart';
 import 'dart:ui';
+import 'package:intl/intl.dart';
+
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
 
@@ -246,15 +248,18 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
 
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
-
+  bool isAfter9AM = false;
   bool isLoading = false; // 🔹 For full screen loader
 
   @override
   void initState() {
     super.initState();
+    _checkDeliveryEligibility();
     _fetchUserDetails();
     _getCurrentLocation();
+
     _fetchPaymentMethods();
+
     _controller = AnimationController(
       duration: const Duration(milliseconds: 2500),
       vsync: this,
@@ -285,7 +290,16 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
       longitude = position.longitude;
     });
   }
-
+  void _checkDeliveryEligibility() {
+    final now = DateTime.now().toUtc().add(Duration(hours: 5, minutes: 30)); // IST
+    final nineAM = DateTime(now.year, now.month, now.day, 9);
+    setState(() {
+      isAfter9AM = now.isAfter(nineAM);
+      if (isAfter9AM) {
+        selectedDeliveryDay = 'Tomorrow'; // Force set
+      }
+    });
+  }
   void _fetchUserDetails() async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
@@ -525,12 +539,44 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
                         ),
                       ),
                       const SizedBox(height: 20),
-                      _buildSelectionCard('Delivery Day', ['Today', 'Tomorrow'], selectedDeliveryDay, (value) {
-                        setState(() {
-                          selectedDeliveryDay = value;
-                          _updateDeliveryDetails();
-                        });
-                      }),
+                      _buildSelectionCard(
+                        'Delivery Day',
+                        isAfter9AM ? ['Tomorrow'] : ['Today', 'Tomorrow'],
+                        selectedDeliveryDay,
+                            (value) {
+                          setState(() {
+                            selectedDeliveryDay = value;
+                            _updateDeliveryDetails();
+                          });
+                        },
+                      ),
+                      if (isAfter9AM)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "🕗 Your order will be delivered tomorrow morning at 7 - 8 AM.\n\n🕗 உங்கள் ஆர்டர் நாளை காலை 7 - 8 மணிக்கு டெலிவரி செய்யப்படும்.\n",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.orange[800],
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                "✅ Today delivery is available only for orders placed before 9 AM.\n\n✅ இன்று காலை 9 மணிக்கு முன் செய்யப்படும் ஆர்டர்களுக்கு மட்டுமே டெலிவரி கிடைக்கும்.",
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+
                       const SizedBox(height: 20),
                   if (paymentMethods.isNotEmpty)
                   _buildSelectionCard('Payment Method', paymentMethods, selectedPaymentMethod, (value)
