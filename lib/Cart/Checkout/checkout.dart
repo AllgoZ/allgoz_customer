@@ -449,6 +449,10 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
         'deliveryPartnerUid': result['deliveryPartnerUid'],
         'distances': result['distances'],
         'mapLinks': result['mapLinks'],
+
+        // ✅ Delivery Partner Info
+        'deliveryPartnerUid': result['deliveryPartnerUid'],
+        'allDeliveryPartners': result['deliveryPartners'], // ✅ Save all nearby
       });
 
       final cartRef = FirebaseFirestore.instance
