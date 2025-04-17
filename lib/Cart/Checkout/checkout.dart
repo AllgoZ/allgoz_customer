@@ -1,14 +1,11 @@
 import 'package:allgoz/Account/Addresses/manage_adress.dart';
 import 'package:allgoz/Home/home.dart';
-import 'package:allgoz/services/delivery_service.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
-
-
-
+import 'package:allgoz/services/delivery_service.dart';
+import 'dart:ui';
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
 
@@ -18,6 +15,10 @@ class CheckoutScreen extends StatefulWidget {
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
   String selectedPaymentMethod = 'Cash on Delivery';
+  double discount = 0;
+  double deliveryCharge = 0;
+  double packagingFee = 0;
+
   String? userPhoneNumber;
   List<Map<String, dynamic>> cartItems = [];
 
@@ -25,6 +26,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void initState() {
     super.initState();
     _fetchUserPhoneNumber();
+    _fetchPricingSettings();
   }
 
   void _fetchUserPhoneNumber() {
@@ -33,6 +35,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       setState(() {
         userPhoneNumber = user.phoneNumber;
       });
+    }
+  }
+
+  void _fetchPricingSettings() async {
+    final doc = await FirebaseFirestore.instance
+        .collection('pricingSettings')
+        .doc('values')
+        .get();
+
+    if (doc.exists) {
+      final data = doc.data();
+      if (data != null) {
+        setState(() {
+          discount = (doc.data()?['discount'] ?? 0).toDouble();
+          deliveryCharge = double.tryParse(data['deliveryCharge'].toString()) ?? 0;
+          packagingFee = double.tryParse(data['packagingFee'].toString()) ?? 0;
+        });
+      }
     }
   }
 
@@ -45,15 +65,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final scaleFactor = screenWidth / 390;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF4A90E2),
-        title: const Text('Checkout',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        title: Text('Checkout',
+            style: TextStyle(fontSize: 24 * scaleFactor, fontWeight: FontWeight.bold)),
         centerTitle: true,
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(16.0 * scaleFactor),
         child: StreamBuilder<QuerySnapshot>(
           stream: userPhoneNumber != null
               ? FirebaseFirestore.instance
@@ -64,9 +87,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               : null,
           builder: (context, snapshot) {
             if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-              return const Center(
+              return Center(
                   child: Text("Your cart is empty",
-                      style: TextStyle(fontSize: 18)));
+                      style: TextStyle(fontSize: 18 * scaleFactor)));
             }
 
             cartItems = snapshot.data!.docs.map((doc) {
@@ -82,6 +105,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             }).toList();
 
             double totalAmount = calculateTotalAmount(cartItems);
+            double finalAmount = totalAmount - discount + deliveryCharge + packagingFee;
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -92,80 +116,78 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       Card(
                         elevation: 4,
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                            borderRadius: BorderRadius.circular(12 * scaleFactor)),
                         child: Padding(
-                          padding: const EdgeInsets.all(8.0),
+                          padding: EdgeInsets.all(8.0 * scaleFactor),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Order Summary',
+                              Text('Order Summary',
                                   style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 22)),
+                                      fontSize: 22 * scaleFactor)),
                               ...cartItems.map((item) => ListTile(
-                                leading: Image.network(item['imageURL'],
-                                    width: 40,
-                                    height: 40,
-                                    fit: BoxFit.cover),
+                                leading: Image.network(
+                                  item['imageURL'],
+                                  width: 40 * scaleFactor,
+                                  height: 40 * scaleFactor,
+                                  fit: BoxFit.cover,
+                                ),
                                 title: Text(item['name'],
-                                    style: const TextStyle(
-                                        fontSize: 18,
+                                    style: TextStyle(
+                                        fontSize: 18 * scaleFactor,
                                         fontWeight: FontWeight.w500)),
                                 subtitle: Text(
                                     "${item['grams']}g x ${item['quantity']}",
-                                    style: const TextStyle(fontSize: 18)),
+                                    style: TextStyle(fontSize: 16 * scaleFactor)),
                                 trailing: Text(
                                     '₹${item['price'] * item['quantity']}',
-                                    style: const TextStyle(
-                                        fontSize: 18,
+                                    style: TextStyle(
+                                        fontSize: 18 * scaleFactor,
                                         fontWeight: FontWeight.bold)),
                               )),
                             ],
                           ),
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      SizedBox(height: 10 * scaleFactor),
                       Card(
                         elevation: 4,
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                            borderRadius: BorderRadius.circular(12 * scaleFactor)),
                         child: Column(
                           children: [
                             ListTile(
-                              title: const Text('Subtotal',
-                                  style: TextStyle(fontSize: 18)),
-                              trailing: Text('₹$totalAmount',
-                                  style: const TextStyle(fontSize: 18)),
+                              title: Text('Subtotal', style: TextStyle(fontSize: 18 * scaleFactor)),
+                              trailing: Text('₹$totalAmount', style: TextStyle(fontSize: 18 * scaleFactor)),
                             ),
-                            const ListTile(
-                              title: Text('Discount',
-                                  style: TextStyle(fontSize: 18)),
-                              trailing: Text('- ₹0',
-                                  style: TextStyle(fontSize: 18)),
+                            ListTile(
+                              title: Text('Discount', style: TextStyle(fontSize: 18 * scaleFactor)),
+                              trailing: Text('- ₹$discount', style: TextStyle(fontSize: 18 * scaleFactor)),
                             ),
-                            const ListTile(
-                              title: Text('Delivery Charges',
-                                  style: TextStyle(fontSize: 18)),
-                              trailing: Text('Free',
-                                  style: TextStyle(fontSize: 18)),
+                            ListTile(
+                              title: Text('Delivery Charges', style: TextStyle(fontSize: 18 * scaleFactor)),
+                              trailing: Text('₹$deliveryCharge', style: TextStyle(fontSize: 18 * scaleFactor)),
+                            ),
+                            ListTile(
+                              title: Text('Packaging Fee', style: TextStyle(fontSize: 18 * scaleFactor)),
+                              trailing: Text('₹$packagingFee', style: TextStyle(fontSize: 18 * scaleFactor)),
                             ),
                             const Divider(),
                             ListTile(
-                              title: const Text('Total',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 20)),
-                              trailing: Text('₹$totalAmount',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 20)),
+                              title: Text('Total',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20 * scaleFactor)),
+                              trailing: Text('₹$finalAmount',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20 * scaleFactor)),
                             ),
                           ],
                         ),
-                      ),
+                      )
+
                     ],
                   ),
                 ),
+                SizedBox(height: 10 * scaleFactor),
                 ElevatedButton(
                   onPressed: () {
                     Navigator.push(
@@ -178,13 +200,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(9),
+                      borderRadius: BorderRadius.circular(9 * scaleFactor),
                     ),
-                    minimumSize: const Size(double.infinity, 50),
+                    minimumSize: Size(double.infinity, 50 * scaleFactor),
                   ),
-                  child: const Text('Confirm',
+                  child: Text('Confirm',
                       style: TextStyle(
-                          fontSize: 20,
+                          fontSize: 20 * scaleFactor,
                           fontWeight: FontWeight.bold,
                           color: Colors.white)),
                 ),
@@ -206,13 +228,14 @@ class DeliveryScreen extends StatefulWidget {
 
   @override
   _DeliveryScreenState createState() => _DeliveryScreenState();
-
 }
+
 double? latitude;
 double? longitude;
 
-class _DeliveryScreenState extends State<DeliveryScreen>
-    with SingleTickerProviderStateMixin {
+class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProviderStateMixin {
+  List<String> paymentMethods = [];
+
   String selectedPaymentMethod = 'Cash on Delivery';
   String selectedDeliveryDay = 'Today';
   String? userUID;
@@ -224,13 +247,14 @@ class _DeliveryScreenState extends State<DeliveryScreen>
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
 
+  bool isLoading = false; // 🔹 For full screen loader
+
   @override
   void initState() {
     super.initState();
     _fetchUserDetails();
     _getCurrentLocation();
-
-
+    _fetchPaymentMethods();
     _controller = AnimationController(
       duration: const Duration(milliseconds: 2500),
       vsync: this,
@@ -242,23 +266,18 @@ class _DeliveryScreenState extends State<DeliveryScreen>
 
     _controller.forward();
   }
+
   Future<void> _getCurrentLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      return;
-    }
+    if (!serviceEnabled) return;
 
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        return;
-      }
+      if (permission == LocationPermission.denied) return;
     }
 
-    if (permission == LocationPermission.deniedForever) {
-      return;
-    }
+    if (permission == LocationPermission.deniedForever) return;
 
     Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
     setState(() {
@@ -304,7 +323,6 @@ class _DeliveryScreenState extends State<DeliveryScreen>
         }
       }
 
-      /// ✅ Fetch previous Payment Method & Delivery Day
       DocumentSnapshot deliveryDoc = await FirebaseFirestore.instance
           .collection('customers')
           .doc(userPhoneNumber)
@@ -335,15 +353,22 @@ class _DeliveryScreenState extends State<DeliveryScreen>
       'paymentMethod': selectedPaymentMethod,
       'deliveryAddress': selectedAddress,
     });
-
-    print("✅ Delivery details saved!");
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+  Future<void> _fetchPaymentMethods() async {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('CashOut')
+        .doc('methods')
+        .get();
+
+    if (snapshot.exists) {
+      setState(() {
+        paymentMethods = snapshot.data()!.keys.toList();
+      });
+    }
   }
+
+
 
   void _placeOrder() async {
     if (userUID == null || userPhoneNumber == null || selectedAddress == null || addressDetails == null) {
@@ -354,17 +379,19 @@ class _DeliveryScreenState extends State<DeliveryScreen>
       return;
     }
 
-    await _updateDeliveryDetails(); // Save delivery preferences
+    setState(() => isLoading = true); // 🔹 Show loader
+
+    await _updateDeliveryDetails();
 
     try {
-      // ✅ Step 1: Delivery Partner Feasibility Check
       final result = await DeliveryService.checkDeliveryFeasibilityAndPlaceOrder(
-        sellerUid: '344y6ZUTzuWRfjFMzR5mImLNAmt1', // Replace with actual seller UID
+        sellerUid: '344y6ZUTzuWRfjFMzR5mImLNAmt1',
         customerPhoneNumber: userPhoneNumber!,
         addressId: addressDetails!['id'] ?? 'default',
       );
 
       if (!result['success']) {
+        setState(() => isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(result['message']),
           backgroundColor: Colors.red,
@@ -372,11 +399,9 @@ class _DeliveryScreenState extends State<DeliveryScreen>
         return;
       }
 
-      // ✅ Step 2: Generate unique order ID
       final todayStr = DateTime.now().toLocal().toString().substring(0, 10).replaceAll('-', '');
       final counterRef = FirebaseFirestore.instance.collection('orderCounter').doc(todayStr);
       final counterSnap = await counterRef.get();
-
       int counter = 1;
       if (counterSnap.exists) {
         counter = (counterSnap.data()?['count'] ?? 0) + 1;
@@ -390,7 +415,6 @@ class _DeliveryScreenState extends State<DeliveryScreen>
           .collection('orders')
           .doc(customOrderId);
 
-      // ✅ Step 3: Store order
       await customerOrderRef.set({
         'orderId': customOrderId,
         'userPhoneNumber': userPhoneNumber,
@@ -407,15 +431,12 @@ class _DeliveryScreenState extends State<DeliveryScreen>
         'status': 'New',
         'orderDate': Timestamp.now(),
         'updatedBy': 'customer',
-
-        // ✅ Added new fields
         'location': result['location'],
         'deliveryPartnerUid': result['deliveryPartnerUid'],
         'distances': result['distances'],
-        'mapLinks': result['mapLinks'], // ✅ MAP LINKS added here
+        'mapLinks': result['mapLinks'],
       });
 
-      // ✅ Step 4: Clear cart
       final cartRef = FirebaseFirestore.instance
           .collection('customers')
           .doc(userPhoneNumber)
@@ -425,6 +446,8 @@ class _DeliveryScreenState extends State<DeliveryScreen>
       for (var doc in cartItems.docs) {
         await doc.reference.delete();
       }
+
+      setState(() => isLoading = false); // 🔹 Hide loader
 
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text("Your order has been placed successfully!"),
@@ -437,7 +460,7 @@ class _DeliveryScreenState extends State<DeliveryScreen>
             (route) => false,
       );
     } catch (e) {
-      print("❌ Error placing order: $e");
+      setState(() => isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text("Order failed: $e"),
         backgroundColor: Colors.red,
@@ -445,99 +468,122 @@ class _DeliveryScreenState extends State<DeliveryScreen>
     }
   }
 
-
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF4A90E2),
-        title: const Text('Delivery Details',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-        centerTitle: true,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: ListView(
-                children: [
-                  ScaleTransition(
-                    scale: _scaleAnimation,
-                    child: Card(
-                      elevation: 4,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      child: ListTile(
-                        title: const Text('Delivery Address',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 20)),
-                        subtitle: selectedAddress != null
-                            ? Text(selectedAddress!,
-                            style: const TextStyle(fontSize: 18))
-                            : const Text("No address found",
-                            style: TextStyle(fontSize: 18, color: Colors.red)),
-                        trailing: TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => ManageAddressesScreen()),
-                            ).then((_) {
-                              _fetchUserDetails();
-                            });
-                          },
-                          child: const Text('Add Address',
-                              style: TextStyle(color: Colors.blue, fontSize: 16)),
+    final scaleFactor = MediaQuery.of(context).size.width / 390;
+
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: AppBar(
+            backgroundColor: const Color(0xFF4A90E2),
+            title: const Text('Delivery Details',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            centerTitle: true,
+          ),
+          body: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: ListView(
+                    children: [
+                      ScaleTransition(
+                        scale: _scaleAnimation,
+                        child: Card(
+                          elevation: 4,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          child: ListTile(
+                            title: const Text('Delivery Address',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 20)),
+                            subtitle: selectedAddress != null
+                                ? Text(selectedAddress!, style: const TextStyle(fontSize: 18))
+                                : const Text("No address found", style: TextStyle(fontSize: 18, color: Colors.red)),
+                            trailing: TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (context) => ManageAddressesScreen()),
+                                ).then((_) {
+                                  _fetchUserDetails();
+                                });
+                              },
+                              child: const Text('Add Address',
+                                  style: TextStyle(color: Colors.blue, fontSize: 16)),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  /// 🔹 Delivery Day Selection
-                  _buildSelectionCard('Delivery Day', ['Today', 'Tomorrow'], selectedDeliveryDay,
-                          (value) {
+                      const SizedBox(height: 20),
+                      _buildSelectionCard('Delivery Day', ['Today', 'Tomorrow'], selectedDeliveryDay, (value) {
                         setState(() {
                           selectedDeliveryDay = value;
                           _updateDeliveryDetails();
                         });
                       }),
-
-                  const SizedBox(height: 20),
-
-                  /// 🔹 Payment Method Selection
-                  _buildSelectionCard('Payment Method',
-                      ['Cash on Delivery', 'UPI', 'Credit/Debit Card'], selectedPaymentMethod,
-                          (value) {
-                        setState(() {
-                          selectedPaymentMethod = value;
-                          _updateDeliveryDetails();
-                        });
-                      }),
-                ],
-              ),
-            ),
-            ElevatedButton(
-              onPressed: _placeOrder,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(9),
+                      const SizedBox(height: 20),
+                  if (paymentMethods.isNotEmpty)
+                  _buildSelectionCard('Payment Method', paymentMethods, selectedPaymentMethod, (value)
+                        {
+                            setState(() {
+                              selectedPaymentMethod = value;
+                              _updateDeliveryDetails();
+                            });
+                          }),
+                    ],
+                  ),
                 ),
-                minimumSize: const Size(double.infinity, 50),
-              ),
-              child: const Text('Place Order',
-                  style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white)),
+                ElevatedButton(
+                  onPressed: _placeOrder,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    minimumSize: const Size(double.infinity, 50),
+                  ),
+                  child: const Text('Place Order',
+                      style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white)),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
+
+        // 🔹 iOS-Style Full Screen Blur Loader
+        if (isLoading)
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withOpacity(0.6),
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                    SizedBox(height: 16),
+
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+      ],
     );
   }
 
@@ -558,4 +604,3 @@ class _DeliveryScreenState extends State<DeliveryScreen>
     );
   }
 }
-

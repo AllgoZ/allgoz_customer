@@ -4,7 +4,6 @@ import 'package:allgoz/Account/Notification%20Settings/notification_settings.dar
 import 'package:allgoz/Account/Payment%20Method/payment_methods.dart';
 import 'package:allgoz/Account/Privacy%20Settings/privacy_settings.dart';
 import 'package:allgoz/Account/Profile/profile_edit.dart';
-
 import 'package:allgoz/Cart/cart.dart';
 import 'package:allgoz/Favorite/favorite.dart';
 import 'package:allgoz/Home/home.dart';
@@ -18,188 +17,141 @@ class AccountScreen extends StatefulWidget {
 }
 
 class _AccountScreenState extends State<AccountScreen> {
-  int _selectedIndex = 3; // Default to Account
+  int _selectedIndex = 3;
 
-  // Navigation Function
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    if (index == _selectedIndex) return;
 
+    setState(() => _selectedIndex = index);
     if (index == 0) {
-      Navigator.push(context, MaterialPageRoute(builder: (context) => HomePage()));
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomePage()));
     } else if (index == 1) {
-      Navigator.push(context, MaterialPageRoute(builder: (context) => CartScreen()));
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const CartScreen()));
     } else if (index == 2) {
-      Navigator.push(context, MaterialPageRoute(builder: (context) => FavoritesScreen()));
-    } else if (index == 3) {
-      // Already on Account Screen
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const FavoritesScreen()));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[200],
-      appBar: AppBar(
-        backgroundColor: Color(0xFF4A90E2),
-        title: Text('Account'),
-        centerTitle: true,
-      ),
-      body: ListView(
-        padding: EdgeInsets.all(16),
-        children: [
-          // 👤 User Profile Section
-          Card(
-            elevation: 4,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-            child: ListTile(
-              leading: CircleAvatar(
-                radius: 30,
-                backgroundImage: AssetImage('assets/profile.png'), // Placeholder image
+    final width = MediaQuery.of(context).size.width;
+    final scaleFactor = width / 390;
+
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomePage()));
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: Colors.grey[200],
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF4A90E2),
+          title: Text('Account', style: TextStyle(fontSize: 20 * scaleFactor)),
+          centerTitle: true,
+          automaticallyImplyLeading: false,
+        ),
+        body: ListView(
+          padding: EdgeInsets.all(16 * scaleFactor),
+          children: [
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+              child: ListTile(
+                leading: CircleAvatar(
+                  radius: 30 * scaleFactor,
+                  backgroundImage: AssetImage('assets/profile.png'),
+                ),
+                title: Text('John Doe', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18 * scaleFactor)),
+                subtitle: Text('+91 98765 43210'),
+                trailing: Icon(Icons.edit, color: Colors.blue),
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => EditProfileScreen()));
+                },
               ),
-              title: Text('John Doe', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-              subtitle: Text('+91 98765 43210'),
-              trailing: Icon(Icons.edit, color: Colors.blue),
-              onTap: () {
-                // Navigate to Edit Profile
-                Navigator.push(context, MaterialPageRoute(builder: (context) =>  EditProfileScreen()));
-
-              },
             ),
-          ),
-
-          SizedBox(height: 20),
-
-          // 📦 Orders Section
-          _buildSectionTitle('Orders'),
-          _buildAccountOption(Icons.shopping_bag, 'My Orders', () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => MyOrdersScreen()));
-          }),
-          _buildAccountOption(Icons.local_shipping, 'Track Current Orders', () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => TrackCurrentOrderScreen()));
-          }),
-
-          SizedBox(height: 20),
-
-          // ⚙️ Account Settings
-          _buildSectionTitle('Account Settings'),
-          _buildAccountOption(Icons.location_on, 'Manage Addresses', () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => ManageAddressesScreen()));
-          }),
-          _buildAccountOption(Icons.payment, 'Payment Methods', () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => PaymentMethodsScreen()));// Navigate to Payment Methods
-          }),
-          _buildAccountOption(Icons.favorite, 'Wishlist/Favorites', () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => FavoritesScreen()));
-          }),
-
-          SizedBox(height: 20),
-
-          // ❓ Help Section
-          _buildSectionTitle('Help & Support'),
-          _buildAccountOption(Icons.help_outline, 'FAQ / Help Center', () {
-
-
-          }),
-          _buildAccountOption(Icons.support_agent, 'Contact Support', () {
-            // Navigate to Contact Support
-            Navigator.push(context, MaterialPageRoute(builder: (context) => ContactSupportScreen()));
-          }),
-
-          SizedBox(height: 20),
-
-          // ⚙️ Settings Section
-          _buildSectionTitle('Settings'),
-          _buildAccountOption(Icons.notifications, 'Notification Settings', () {
-
-            Navigator.push(context, MaterialPageRoute(builder: (context) => NotificationSettingsScreen()));
-            // Navigate to Notification Settings
-          }),
-          _buildAccountOption(Icons.privacy_tip, 'Privacy Settings', () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => PrivacySettingsScreen())); // Navigate to Privacy Settings
-
-          }),
-          _buildAccountOption(Icons.language, 'Language', () {
-            // Navigate to Language Settings
-          }),
-          _buildAccountOption(Icons.dark_mode, 'Dark Mode', () {
-            // Navigate to Dark Mode Toggle
-          }),
-
-          // 🚪 Logout Button inside Settings
-          _buildAccountOption(Icons.logout, 'Logout', () {
-            Navigator.pop(context);
-          }, isLogout: true),
-        ],
-      ),
-
-      // ✅ Bottom Navigation Bar
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        selectedItemColor: Color(0xFF4A90E2),
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart),
-            label: 'Cart',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite),
-            label: 'Favorites',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Account',
-          ),
-        ],
-        onTap: _onItemTapped,
+            SizedBox(height: 20 * scaleFactor),
+            _buildSectionTitle('Orders', scaleFactor),
+            _buildAccountOption(Icons.shopping_bag, 'My Orders', () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => MyOrdersScreen()));
+            }, scaleFactor),
+            _buildAccountOption(Icons.local_shipping, 'Track Current Orders', () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => TrackCurrentOrderScreen()));
+            }, scaleFactor),
+            SizedBox(height: 20 * scaleFactor),
+            _buildSectionTitle('Account Settings', scaleFactor),
+            _buildAccountOption(Icons.location_on, 'Manage Addresses', () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => ManageAddressesScreen()));
+            }, scaleFactor),
+            _buildAccountOption(Icons.payment, 'Payment Methods', () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentMethodsScreen()));
+            }, scaleFactor),
+            _buildAccountOption(Icons.favorite, 'Wishlist/Favorites', () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => FavoritesScreen()));
+            }, scaleFactor),
+            SizedBox(height: 20 * scaleFactor),
+            _buildSectionTitle('Help & Support', scaleFactor),
+            _buildAccountOption(Icons.help_outline, 'FAQ / Help Center', () {}, scaleFactor),
+            _buildAccountOption(Icons.support_agent, 'Contact Support', () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => ContactSupportScreen()));
+            }, scaleFactor),
+            SizedBox(height: 20 * scaleFactor),
+            _buildSectionTitle('Settings', scaleFactor),
+            _buildAccountOption(Icons.notifications, 'Notification Settings', () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => NotificationSettingsScreen()));
+            }, scaleFactor),
+            _buildAccountOption(Icons.privacy_tip, 'Privacy Settings', () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => PrivacySettingsScreen()));
+            }, scaleFactor),
+            _buildAccountOption(Icons.language, 'Language', () {}, scaleFactor),
+            _buildAccountOption(Icons.dark_mode, 'Dark Mode', () {}, scaleFactor),
+            _buildAccountOption(Icons.logout, 'Logout', () {
+              Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomePage()));
+            }, scaleFactor, isLogout: true),
+          ],
+        ),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _selectedIndex,
+          selectedItemColor: const Color(0xFF4A90E2),
+          unselectedItemColor: Colors.grey,
+          onTap: _onItemTapped,
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+            BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: 'Cart'),
+            BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'Favorites'),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Account'),
+          ],
+        ),
       ),
     );
   }
 
-  // 🔹 Helper to Build Account Options
-  Widget _buildAccountOption(IconData icon, String title, VoidCallback onTap, {bool isLogout = false}) {
+  Widget _buildAccountOption(IconData icon, String title, VoidCallback onTap, double scaleFactor, {bool isLogout = false}) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
-        leading: Icon(icon, color: isLogout ? Colors.red : Colors.blue),
+        leading: Icon(icon, color: isLogout ? Colors.red : Colors.blue, size: 24 * scaleFactor),
         title: Text(
           title,
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 16 * scaleFactor,
             color: isLogout ? Colors.red : Colors.black,
             fontWeight: isLogout ? FontWeight.bold : FontWeight.normal,
           ),
         ),
-        trailing: isLogout ? null : Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+        trailing: isLogout ? null : Icon(Icons.arrow_forward_ios, size: 16 * scaleFactor, color: Colors.grey),
         onTap: onTap,
       ),
     );
   }
 
-  // 📋 Section Title Helper
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionTitle(String title, double scaleFactor) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: EdgeInsets.symmetric(vertical: 8 * scaleFactor),
       child: Text(
         title,
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+        style: TextStyle(fontSize: 18 * scaleFactor, fontWeight: FontWeight.bold, color: Colors.black87),
       ),
     );
   }
-}
-
-
-
-void main() {
-  runApp(MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: AccountScreen(),
-  ));
 }
