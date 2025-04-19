@@ -1,7 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
+import 'package:url_launcher/url_launcher_string.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:android_intent_plus/android_intent.dart';
+import 'package:android_intent_plus/flag.dart';
+import 'dart:io';
 class TrackCurrentOrderScreen extends StatefulWidget {
   const TrackCurrentOrderScreen({super.key});
 
@@ -85,6 +89,25 @@ class _TrackCurrentOrderScreenState extends State<TrackCurrentOrderScreen> {
     );
 
     _fetchLatestOrder();
+  }
+
+  void _makePhoneCall(String phoneNumber) async {
+    if (Platform.isAndroid) {
+      final intent = AndroidIntent(
+        action: 'android.intent.action.DIAL',
+        data: 'tel:$phoneNumber',
+        flags: <int>[Flag.FLAG_ACTIVITY_NEW_TASK],
+      );
+      await intent.launch();
+    } else {
+      // iOS fallback
+      final Uri url = Uri.parse('tel:$phoneNumber');
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url);
+      } else {
+        throw 'Could not launch dialer';
+      }
+    }
   }
 
   @override
@@ -181,12 +204,18 @@ class _TrackCurrentOrderScreenState extends State<TrackCurrentOrderScreen> {
             if (currentOrder!['status'] == 'Accepted' && riderDetails != null)
               ListTile(
                 leading: const Icon(Icons.person, color: Colors.blue),
-                title: Text('Rider: ${riderDetails!['name'] ?? 'N/A'}'),
+                title: Text('Rider: ${riderDetails!['fullName'] ?? 'N/A'}'),
                 subtitle: Text('Phone: ${riderDetails!['phone'] ?? '--'}\nVehicle: ${riderDetails!['vehicleNumber'] ?? '--'}'),
                 trailing: IconButton(
                   icon: const Icon(Icons.phone, color: Colors.green),
-                  onPressed: () {},
+                  onPressed: () => _makePhoneCall("+919500381132"),
+
+
+
+
                 ),
+
+
               ),
 
             const Spacer(),

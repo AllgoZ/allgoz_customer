@@ -128,14 +128,19 @@ class LoginPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const SizedBox(height: 100),
-                const Text('AllGoZ', style: TextStyle(fontSize: 50, fontWeight: FontWeight.bold, color: Colors.blue)),
-                const Text('Explore Your Town', style: TextStyle(fontSize: 30, color: Colors.grey)),
+                // const Text('AllGoZ', style: TextStyle(fontSize: 50, fontWeight: FontWeight.bold, color: Colors.blue)),
+                Image.asset(
+                  'assets/icons/5.png', // replace with your actual image path
+                  height: 250,
+                ),
+
+                const Text('Explore Your Town', style: TextStyle(fontSize: 30, color: Colors.grey,fontWeight: FontWeight.bold)),
                 const SizedBox(height: 100),
                 ElevatedButton.icon(
-                  icon: const Icon(Icons.login),
-                  label: const Text("Continue with Google", style: TextStyle(fontSize: 20)),
+                  icon: const Icon(Icons.login,color:Colors.white),
+                  label: const Text("Continue with Google", style: TextStyle(fontSize: 21,color: Colors.white,fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
+                    backgroundColor: Colors.green,
                     minimumSize: const Size(312, 50),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
