@@ -22,18 +22,36 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
   final TextEditingController _pincodeController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
 
-  String _addressType = 'Home'; // Default selection
+  String _addressType = 'Home';
   bool _setAsDefault = false;
 
-  // ✅ Fetch GPS Location
   void _getCurrentLocation() async {
     try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        await Geolocator.openLocationSettings();
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          await Geolocator.openAppSettings();
+          return;
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        await Geolocator.openAppSettings();
+        return;
+      }
+
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
 
       setState(() {
-        _locationController.text = "${position.latitude}, ${position.longitude}";
+        _locationController.text = "Latitude: ${position.latitude}, Longitude: ${position.longitude}";
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -46,16 +64,18 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
     }
   }
 
-  // ✅ Save Address to Firestore
   Future<void> _saveAddress() async {
     if (_formKey.currentState!.validate()) {
-      String? userPhone = FirebaseAuth.instance.currentUser?.phoneNumber;
-      if (userPhone == null) {
+      User? user = FirebaseAuth.instance.currentUser;
+      if (user == null || user.email == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("User not logged in!")),
         );
         return;
       }
+
+      final emailKey = user.email!.replaceAll('.', '_').replaceAll('@', '_');
+      String userCustomerId = 'google_$emailKey';
 
       Map<String, dynamic> addressData = {
         "name": _nameController.text.trim(),
@@ -75,7 +95,7 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
       try {
         DocumentReference newAddressRef = FirebaseFirestore.instance
             .collection('customers')
-            .doc(userPhone)
+            .doc(userCustomerId)
             .collection('addresses')
             .doc();
 
@@ -84,7 +104,7 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
         if (_setAsDefault) {
           await FirebaseFirestore.instance
               .collection('customers')
-              .doc(userPhone)
+              .doc(userCustomerId)
               .update({"defaultAddress": newAddressRef.id});
         }
 
@@ -117,13 +137,13 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
             children: [
               _buildTextField("Full Name", _nameController),
               _buildTextField("Phone Number", _phoneController, keyboardType: TextInputType.phone),
-              _buildTextField("Alternate Phone (Optional)", _altPhoneController, keyboardType: TextInputType.phone),
+              _buildTextField("Alternate Phone (Optional)", _altPhoneController, keyboardType: TextInputType.phone, optional: true),
               _buildTextField("House/Flat No, Building Name", _houseController),
               _buildTextField("Street & Locality", _streetController),
-              _buildTextField("Landmark (Optional)", _landmarkController),
+              _buildTextField("Landmark (Optional)", _landmarkController, optional: true),
               _buildTextField("City", _cityController),
-              _buildTextField("State", _stateController),
-              _buildTextField("Pincode", _pincodeController, keyboardType: TextInputType.number),
+              _buildTextField("State", _stateController, optional: true),
+              _buildTextField("Pincode", _pincodeController, keyboardType: TextInputType.number, optional: true),
 
               _buildTextField("Current Location", _locationController, readOnly: true),
               ElevatedButton(
@@ -134,7 +154,6 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
 
               SizedBox(height: 10),
 
-              // ✅ Address Type Dropdown
               DropdownButtonFormField<String>(
                 value: _addressType,
                 items: ['Home', 'Work', 'Other'].map((type) {
@@ -144,7 +163,6 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
                 decoration: InputDecoration(labelText: 'Address Type', border: OutlineInputBorder()),
               ),
 
-              // ✅ Set as Default Address
               SwitchListTile(
                 title: Text("Set as Default Address"),
                 value: _setAsDefault,
@@ -157,7 +175,6 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
 
               SizedBox(height: 20),
 
-              // ✅ Save Button
               ElevatedButton(
                 onPressed: _saveAddress,
                 style: ElevatedButton.styleFrom(
@@ -174,9 +191,8 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
     );
   }
 
-  // 🔤 Text Field Builder
   Widget _buildTextField(String label, TextEditingController controller,
-      {TextInputType keyboardType = TextInputType.text, bool readOnly = false}) {
+      {TextInputType keyboardType = TextInputType.text, bool readOnly = false, bool optional = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: TextFormField(
@@ -184,7 +200,7 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
         keyboardType: keyboardType,
         readOnly: readOnly,
         validator: (value) {
-          if (!readOnly && (value == null || value.isEmpty)) {
+          if (!readOnly && !optional && (value == null || value.isEmpty)) {
             return 'Please enter $label';
           }
           return null;

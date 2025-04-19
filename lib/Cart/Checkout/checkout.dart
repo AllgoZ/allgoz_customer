@@ -21,21 +21,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   double deliveryCharge = 0;
   double packagingFee = 0;
 
-  String? userPhoneNumber;
+  String? userCustomerId;
   List<Map<String, dynamic>> cartItems = [];
 
   @override
   void initState() {
     super.initState();
-    _fetchUserPhoneNumber();
+    _fetchUserCustomerId();
     _fetchPricingSettings();
   }
 
-  void _fetchUserPhoneNumber() {
+  void _fetchUserCustomerId() {
     User? user = FirebaseAuth.instance.currentUser;
-    if (user != null && user.phoneNumber != null) {
+    if (user != null && user.email != null) {
       setState(() {
-        userPhoneNumber = user.phoneNumber;
+        userCustomerId = 'google_${user.email!.replaceAll('.', '_').replaceAll('@', '_')}';
       });
     }
   }
@@ -80,10 +80,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       body: Padding(
         padding: EdgeInsets.all(16.0 * scaleFactor),
         child: StreamBuilder<QuerySnapshot>(
-          stream: userPhoneNumber != null
+          stream: userCustomerId != null
               ? FirebaseFirestore.instance
               .collection('customers')
-              .doc(userPhoneNumber)
+              .doc(userCustomerId)
               .collection('cart')
               .snapshots()
               : null,
@@ -185,7 +185,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           ],
                         ),
                       )
-
                     ],
                   ),
                 ),
@@ -241,7 +240,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
   String selectedPaymentMethod = 'Cash on Delivery';
   String selectedDeliveryDay = 'Today';
   String? userUID;
-  String? userPhoneNumber;
+  String? userCustomerId;
   String? customerName;
   String? selectedAddress;
   Map<String, dynamic>? addressDetails;
@@ -257,7 +256,6 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
     _checkDeliveryEligibility();
     _fetchUserDetails();
     _getCurrentLocation();
-
     _fetchPaymentMethods();
 
     _controller = AnimationController(
@@ -268,6 +266,8 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
     _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
     );
+
+
 
     _controller.forward();
   }
@@ -290,6 +290,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
       longitude = position.longitude;
     });
   }
+
   void _checkDeliveryEligibility() {
     final now = DateTime.now().toUtc().add(Duration(hours: 5, minutes: 30)); // IST
     final nineAM = DateTime(now.year, now.month, now.day, 9);
@@ -300,17 +301,18 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
       }
     });
   }
+
   void _fetchUserDetails() async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       setState(() {
         userUID = user.uid;
-        userPhoneNumber = user.phoneNumber;
+        userCustomerId = 'google_${user.email!.replaceAll('.', '_').replaceAll('@', '_')}';
       });
 
       DocumentSnapshot userDoc = await FirebaseFirestore.instance
           .collection('customers')
-          .doc(userPhoneNumber)
+          .doc(userCustomerId)
           .get();
 
       if (userDoc.exists && userDoc.data() != null) {
@@ -322,7 +324,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
         if (defaultAddressId != null) {
           DocumentSnapshot addressDoc = await FirebaseFirestore.instance
               .collection('customers')
-              .doc(userPhoneNumber)
+              .doc(userCustomerId)
               .collection('addresses')
               .doc(defaultAddressId)
               .get();
@@ -339,7 +341,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
 
       DocumentSnapshot deliveryDoc = await FirebaseFirestore.instance
           .collection('customers')
-          .doc(userPhoneNumber)
+          .doc(userCustomerId)
           .collection('deliveryDetails')
           .doc('details')
           .get();
@@ -355,11 +357,11 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
   }
 
   Future<void> _updateDeliveryDetails() async {
-    if (userPhoneNumber == null || selectedAddress == null) return;
+    if (userCustomerId == null || selectedAddress == null) return;
 
     await FirebaseFirestore.instance
         .collection('customers')
-        .doc(userPhoneNumber)
+        .doc(userCustomerId)
         .collection('deliveryDetails')
         .doc('details')
         .set({
@@ -382,10 +384,8 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
     }
   }
 
-
-
   void _placeOrder() async {
-    if (userUID == null || userPhoneNumber == null || selectedAddress == null || addressDetails == null) {
+    if (userUID == null || userCustomerId == null || selectedAddress == null || addressDetails == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text("Please select or add an address."),
         backgroundColor: Colors.red,
@@ -393,14 +393,13 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
       return;
     }
 
-    setState(() => isLoading = true); // 🔹 Show loader
-
+    setState(() => isLoading = true);
     await _updateDeliveryDetails();
 
     try {
       final result = await DeliveryService.checkDeliveryFeasibilityAndPlaceOrder(
         sellerUid: '344y6ZUTzuWRfjFMzR5mImLNAmt1',
-        customerPhoneNumber: userPhoneNumber!,
+        customerPhoneNumber: userCustomerId!,
         addressId: addressDetails!['id'] ?? 'default',
       );
 
@@ -423,17 +422,23 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
       await counterRef.set({'count': counter});
 
       final customOrderId = 'ORD-$todayStr-${counter.toString().padLeft(6, '0')}';
+      final user = FirebaseAuth.instance.currentUser;
+      final emailKey = user!.email!.replaceAll('.', '_').replaceAll('@', '_');
+      userCustomerId = 'google_$emailKey'; // ✅ update the class variable
+
+
       final customerOrderRef = FirebaseFirestore.instance
           .collection('orders')
-          .doc(userUID)
+          .doc(userCustomerId) // ✅ correct path
           .collection('orders')
           .doc(customOrderId);
 
       await customerOrderRef.set({
         'orderId': customOrderId,
-        'userPhoneNumber': userPhoneNumber,
+        'userPhoneNumber': userCustomerId,
         'customerName': customerName,
         'customerUID': userUID,
+        'mobileNumber': addressDetails!['phone'],
         'items': widget.cartItems,
         'totalAmount': widget.cartItems.fold<double>(
           0,
@@ -449,15 +454,14 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
         'deliveryPartnerUid': result['deliveryPartnerUid'],
         'distances': result['distances'],
         'mapLinks': result['mapLinks'],
-
-        // ✅ Delivery Partner Info
+        'sellerid': '344y6ZUTzuWRfjFMzR5mImLNAmt1',
         'deliveryPartnerUid': result['deliveryPartnerUid'],
-        'allDeliveryPartners': result['deliveryPartners'], // ✅ Save all nearby
+        'allDeliveryPartners': result['deliveryPartners'],
       });
 
       final cartRef = FirebaseFirestore.instance
           .collection('customers')
-          .doc(userPhoneNumber)
+          .doc(userCustomerId)
           .collection('cart');
 
       final cartItems = await cartRef.get();
@@ -465,7 +469,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
         await doc.reference.delete();
       }
 
-      setState(() => isLoading = false); // 🔹 Hide loader
+      setState(() => isLoading = false);
 
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text("Your order has been placed successfully!"),
@@ -579,17 +583,14 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
                             ],
                           ),
                         ),
-
-
                       const SizedBox(height: 20),
-                  if (paymentMethods.isNotEmpty)
-                  _buildSelectionCard('Payment Method', paymentMethods, selectedPaymentMethod, (value)
-                        {
-                            setState(() {
-                              selectedPaymentMethod = value;
-                              _updateDeliveryDetails();
-                            });
-                          }),
+                      if (paymentMethods.isNotEmpty)
+                        _buildSelectionCard('Payment Method', paymentMethods, selectedPaymentMethod, (value) {
+                          setState(() {
+                            selectedPaymentMethod = value;
+                            _updateDeliveryDetails();
+                          });
+                        }),
                     ],
                   ),
                 ),
@@ -612,8 +613,6 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
             ),
           ),
         ),
-
-        // 🔹 iOS-Style Full Screen Blur Loader
         if (isLoading)
           Positioned.fill(
             child: Container(
@@ -626,13 +625,11 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                     SizedBox(height: 16),
-
                   ],
                 ),
               ),
             ),
           ),
-
       ],
     );
   }

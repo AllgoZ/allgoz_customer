@@ -15,35 +15,35 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
-  String? userPhoneNumber;
+  String? userCustomerId;
   double totalAmount = 0;
 
   @override
   void initState() {
     super.initState();
-    _fetchUserPhoneNumber();
+    _fetchUserCustomerId();
   }
 
-  void _fetchUserPhoneNumber() {
+  void _fetchUserCustomerId() {
     User? user = FirebaseAuth.instance.currentUser;
-    if (user != null && user.phoneNumber != null) {
+    if (user != null && user.email != null) {
       setState(() {
-        userPhoneNumber = user.phoneNumber;
+        userCustomerId = 'google_${user.email!.replaceAll('.', '_').replaceAll('@', '_')}';
       });
     }
   }
 
   Stream<QuerySnapshot> _fetchCartStream() {
-    if (userPhoneNumber == null) return Stream.empty();
+    if (userCustomerId == null) return Stream.empty();
     return FirebaseFirestore.instance
         .collection('customers')
-        .doc(userPhoneNumber)
+        .doc(userCustomerId)
         .collection('cart')
         .snapshots();
   }
 
   void _updateCart(String productId, Map<String, dynamic> product, int newQuantity) async {
-    if (userPhoneNumber == null) return;
+    if (userCustomerId == null) return;
 
     int baseGrams = (product['unit'] == "Kg") ? 1000 : 1;
     int grams = newQuantity * baseGrams;
@@ -51,7 +51,7 @@ class _CartScreenState extends State<CartScreen> {
     if (newQuantity > 0) {
       await FirebaseFirestore.instance
           .collection('customers')
-          .doc(userPhoneNumber)
+          .doc(userCustomerId)
           .collection('cart')
           .doc(productId)
           .set({
@@ -69,10 +69,10 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Future<void> _removeFromCart(String productId) async {
-    if (userPhoneNumber == null) return;
+    if (userCustomerId == null) return;
     await FirebaseFirestore.instance
         .collection('customers')
-        .doc(userPhoneNumber)
+        .doc(userCustomerId)
         .collection('cart')
         .doc(productId)
         .delete();
@@ -89,13 +89,13 @@ class _CartScreenState extends State<CartScreen> {
           context,
           MaterialPageRoute(builder: (context) => const HomePage()),
         );
-        return false; // prevent default pop
-      },// 🚫 Prevent back button
+        return false;
+      },
       child: Scaffold(
         appBar: AppBar(
-          automaticallyImplyLeading: false, // 🚫 Hide back button
+          automaticallyImplyLeading: false,
           backgroundColor: const Color(0xFF4A90E2),
-          title: Text('My Cart', style: TextStyle(fontSize: 20 * scaleFactor)),
+          title: Text('My Cart', style: TextStyle(fontSize: 20 * scaleFactor,color: Colors.white,fontWeight: FontWeight.bold)),
           centerTitle: true,
           actions: [
             IconButton(

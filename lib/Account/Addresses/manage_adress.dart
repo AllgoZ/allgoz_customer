@@ -4,39 +4,38 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-
 class ManageAddressesScreen extends StatefulWidget {
   @override
   _ManageAddressesScreenState createState() => _ManageAddressesScreenState();
 }
 
 class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
-  String? userPhoneNumber;
+  String? userCustomerId;
   String? defaultAddressId; // Store the default address ID
 
   @override
   void initState() {
     super.initState();
-    _fetchUserPhoneNumber();
+    _fetchUserCustomerId();
     _fetchDefaultAddress();
   }
 
-  void _fetchUserPhoneNumber() {
+  void _fetchUserCustomerId() {
     User? user = FirebaseAuth.instance.currentUser;
-    if (user != null && user.phoneNumber != null) {
+    if (user != null && user.email != null) {
       setState(() {
-        userPhoneNumber = user.phoneNumber;
+        userCustomerId = 'google_${user.email!.replaceAll('.', '_').replaceAll('@', '_')}';
       });
     } else {
-      print("❌ User not logged in or phone number is unavailable!");
+      print("❌ User not logged in or email is unavailable!");
     }
   }
 
   Future<void> _fetchDefaultAddress() async {
-    if (userPhoneNumber == null) return;
+    if (userCustomerId == null) return;
     DocumentSnapshot userDoc = await FirebaseFirestore.instance
         .collection('customers')
-        .doc(userPhoneNumber)
+        .doc(userCustomerId)
         .get();
 
     if (userDoc.exists) {
@@ -47,9 +46,9 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
   }
 
   void _setDefaultAddress(String addressId) async {
-    if (userPhoneNumber == null) return;
+    if (userCustomerId == null) return;
 
-    await FirebaseFirestore.instance.collection('customers').doc(userPhoneNumber).update({
+    await FirebaseFirestore.instance.collection('customers').doc(userCustomerId).update({
       'defaultAddress': addressId,
     });
 
@@ -63,19 +62,19 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
   }
 
   void _deleteAddress(String addressId) async {
-    if (userPhoneNumber == null) return;
+    if (userCustomerId == null) return;
 
     bool isDefault = addressId == defaultAddressId;
 
     await FirebaseFirestore.instance
         .collection('customers')
-        .doc(userPhoneNumber)
+        .doc(userCustomerId)
         .collection('addresses')
         .doc(addressId)
         .delete();
 
     if (isDefault) {
-      await FirebaseFirestore.instance.collection('customers').doc(userPhoneNumber).update({
+      await FirebaseFirestore.instance.collection('customers').doc(userCustomerId).update({
         'defaultAddress': null,
       });
 
@@ -101,7 +100,7 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
       if (updatedAddress != null) {
         FirebaseFirestore.instance
             .collection('customers')
-            .doc(userPhoneNumber)
+            .doc(userCustomerId)
             .collection('addresses')
             .doc(addressId)
             .update(updatedAddress);
@@ -119,7 +118,7 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
       if (newAddress != null) {
         FirebaseFirestore.instance
             .collection('customers')
-            .doc(userPhoneNumber)
+            .doc(userCustomerId)
             .collection('addresses')
             .add(newAddress);
 
@@ -136,12 +135,12 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
         title: Text("Manage Addresses"),
         centerTitle: true,
       ),
-      body: userPhoneNumber == null
+      body: userCustomerId == null
           ? Center(child: CircularProgressIndicator())
           : StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('customers')
-            .doc(userPhoneNumber)
+            .doc(userCustomerId)
             .collection('addresses')
             .snapshots(),
         builder: (context, snapshot) {

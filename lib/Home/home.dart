@@ -196,7 +196,7 @@ class _HomePageState extends State<HomePage> {
           automaticallyImplyLeading: false, // Removes back button icon
           backgroundColor: const Color(0xFF4A90E2),
           title: Text(
-            'AllGoZ',
+            'AllgoZ',
             style: TextStyle(
               fontSize: MediaQuery.of(context).size.width * 0.06,
               fontWeight: FontWeight.bold,

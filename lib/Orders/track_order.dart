@@ -1,72 +1,161 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-class TrackCurrentOrderScreen extends StatelessWidget {
-  final Map<String, dynamic> currentOrder = {
-    "orderId": "ORD12345",
-    "date": "2024-04-20",
-    "status": "Out for Delivery",
-    "estimatedDelivery": "30 mins",
-    "rider": {"name": "Ravi Kumar", "phone": "+91 98765 43210"},
-    "items": [
-      {"name": "Spinach", "quantity": 2, "price": 30, "weight": "1 kg"},
-      {"name": "Broccoli", "quantity": 1, "price": 50, "weight": "500 g"},
-    ],
-  };
+class TrackCurrentOrderScreen extends StatefulWidget {
+  const TrackCurrentOrderScreen({super.key});
+
+  @override
+  State<TrackCurrentOrderScreen> createState() => _TrackCurrentOrderScreenState();
+}
+
+class _TrackCurrentOrderScreenState extends State<TrackCurrentOrderScreen> {
+  Map<String, dynamic>? currentOrder;
+  String? userCustomerId;
+  Map<String, dynamic>? riderDetails;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && user.email != null) {
+      final emailKey = user.email!.replaceAll('.', '_').replaceAll('@', '_');
+      userCustomerId = 'google_$emailKey';
+      _fetchLatestOrder();
+    }
+  }
+
+  Future<void> _fetchLatestOrder() async {
+    if (userCustomerId == null) return;
+    final snapshot = await FirebaseFirestore.instance
+        .collection('orders')
+        .doc(userCustomerId)
+        .collection('orders')
+        .orderBy('orderDate', descending: true)
+        .limit(1)
+        .get();
+
+    if (snapshot.docs.isNotEmpty) {
+      final orderData = snapshot.docs.first.data();
+      setState(() {
+        currentOrder = orderData;
+      });
+
+      if (orderData['status'] == 'Accepted' && orderData['deliveryPartnerUid'] != null) {
+        _fetchRiderDetails(orderData['deliveryPartnerUid']);
+      }
+    }
+  }
+
+  Future<void> _fetchRiderDetails(String riderUid) async {
+    final riderSnap = await FirebaseFirestore.instance.collection('delivery_partners').doc(riderUid).get();
+    if (riderSnap.exists && riderSnap.data() != null) {
+      setState(() {
+        riderDetails = riderSnap.data();
+      });
+    }
+  }
+
+  Future<void> _cancelOrder() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Cancellation'),
+        content: const Text('Are you sure you want to cancel this order?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Yes')),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    if (userCustomerId == null || currentOrder == null) return;
+    final orderId = currentOrder!['orderId'];
+    await FirebaseFirestore.instance
+        .collection('orders')
+        .doc(userCustomerId)
+        .collection('orders')
+        .doc(orderId)
+        .update({'status': 'User_Cancelled'});
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Order cancelled successfully.')),
+    );
+
+    _fetchLatestOrder();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Color(0xFF4A90E2),
-        title: Text('Track Order'),
+        backgroundColor: const Color(0xFF4A90E2),
+        title: const Text('Track Order'),
         centerTitle: true,
       ),
-      body: Padding(
+      body: currentOrder == null
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 📝 Order Summary
             Text(
-              "Order #${currentOrder['orderId']}",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              "Order #${currentOrder!['orderId'] ?? ''}",
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            Text("Date: ${currentOrder['date']}"),
-            Divider(),
+            Text("Date: ${currentOrder!['orderDate'] != null ? (currentOrder!['orderDate'] as Timestamp).toDate().toString().split(" ")[0] : "N/A"}"),
+            const Divider(),
 
-            // 📦 Items List
-            ...currentOrder['items'].map<Widget>((item) {
+            ...List<Widget>.from((currentOrder!['items'] as List<dynamic>).map((item) {
               return ListTile(
-                leading: Icon(Icons.shopping_bag, color: Colors.blue),
-                title: Text(item['name'], style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('${item['weight']} x ${item['quantity']}'),
+                leading: ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: Image.network(item['imageURL'], height: 50, width: 50, fit: BoxFit.cover),
+                ),
+                title: Text(item['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: Text('${item['unit']} x ${item['quantity']}'),
                 trailing: Text('₹${item['price'] * item['quantity']}'),
               );
-            }).toList(),
-            Divider(),
+            })),
 
-            // 📍 Order Status & ETD
+            const Divider(),
+
             Text(
-              "Status: ${currentOrder['status']}",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
+              "Order Total: ₹${currentOrder!['totalAmount'] ?? '--'}",
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 5),
+            if (currentOrder!.containsKey('deliveryCharge'))
+              Text(
+                "Delivery Fee: ₹${currentOrder!['deliveryCharge'] ?? '--'}",
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+
+            const Divider(),
+
             Text(
-              "Estimated Delivery: ${currentOrder['estimatedDelivery']}",
+              "Status: ${currentOrder!['status']}",
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
+            ),
+            const SizedBox(height: 5),
+
+            const Text(
+              "Estimated Delivery: 7 - 8 AM",
               style: TextStyle(fontSize: 16, color: Colors.orange),
             ),
-            SizedBox(height: 10),
 
-            // 🚚 Delivery Progress Indicator
-            LinearProgressIndicator(
-              value: 0.75, // Example progress (75%)
-              backgroundColor: Colors.grey[300],
+            const SizedBox(height: 10),
+
+            const LinearProgressIndicator(
+              value: 0.75,
+              backgroundColor: Colors.grey,
               color: Colors.green,
               minHeight: 8,
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
 
-            // 🗺️ Map Placeholder
             Container(
               height: 150,
               decoration: BoxDecoration(
@@ -74,66 +163,61 @@ class TrackCurrentOrderScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(15),
                 border: Border.all(color: Colors.black26),
               ),
-              child: Center(
+              child: const Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.map, size: 60, color: Colors.grey[700]),
+                    Icon(Icons.map, size: 60, color: Colors.grey),
                     SizedBox(height: 8),
-                    Text(
-                      'Map Placeholder',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[700]),
-                    ),
+                    Text('Map Placeholder',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
                   ],
                 ),
               ),
             ),
-            SizedBox(height: 15),
 
-            // 👤 Rider Information
-            ListTile(
-              leading: Icon(Icons.person, color: Colors.blue),
-              title: Text('Rider: ${currentOrder['rider']['name']}'),
-              subtitle: Text('Phone: ${currentOrder['rider']['phone']}'),
-              trailing: IconButton(
-                icon: Icon(Icons.phone, color: Colors.green),
-                onPressed: () {
-                  // Add call functionality here
-                },
+            const SizedBox(height: 15),
+
+            if (currentOrder!['status'] == 'Accepted' && riderDetails != null)
+              ListTile(
+                leading: const Icon(Icons.person, color: Colors.blue),
+                title: Text('Rider: ${riderDetails!['name'] ?? 'N/A'}'),
+                subtitle: Text('Phone: ${riderDetails!['phone'] ?? '--'}\nVehicle: ${riderDetails!['vehicleNumber'] ?? '--'}'),
+                trailing: IconButton(
+                  icon: const Icon(Icons.phone, color: Colors.green),
+                  onPressed: () {},
+                ),
               ),
-            ),
 
-            Spacer(),
+            const Spacer(),
 
-            // 🚨 Contact Support & Cancel Order Buttons
             Row(
               children: [
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {
-                      // Contact Support Functionality
-                    },
+                    onPressed: () {},
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
                     ),
-                    child: Text('Contact Support', style: TextStyle(color: Colors.white)),
+                    child: const Text('Contact Support', style: TextStyle(color: Colors.white)),
                   ),
                 ),
-                SizedBox(width: 10,),
-                if (currentOrder['status'] != "Out for Delivery") // 🚫 Cancel only if not out for delivery
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        // Cancel Order Functionality
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
-                      ),
-                      child: Text('Cancel Order', style: TextStyle(color: Colors.white)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: (currentOrder!['status'] == 'New' || currentOrder!['status'] == 'Confirmed')
+                        ? _cancelOrder
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: (currentOrder!['status'] == 'New' || currentOrder!['status'] == 'Confirmed')
+                          ? Colors.red
+                          : Colors.grey,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
                     ),
+                    child: const Text('Cancel Order', style: TextStyle(color: Colors.white)),
                   ),
+                ),
               ],
             ),
           ],
@@ -141,11 +225,4 @@ class TrackCurrentOrderScreen extends StatelessWidget {
       ),
     );
   }
-}
-
-void main() {
-  runApp(MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: TrackCurrentOrderScreen(),
-  ));
 }

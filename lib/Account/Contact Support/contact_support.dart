@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ContactSupportScreen extends StatefulWidget {
   @override
@@ -15,13 +16,28 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
 
   void _submitForm() {
     if (_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Your message has been sent to support.')),
+      final Uri emailLaunchUri = Uri(
+        scheme: 'mailto',
+        path: 'allgozintown@gmail.com',
+        query: Uri.encodeFull(
+          'subject=${_subjectController.text}'
+              '&body=Name: ${_nameController.text}\n'
+              'Email: ${_emailController.text}\n\n'
+              '${_messageController.text}',
+        ),
       );
-      _nameController.clear();
-      _emailController.clear();
-      _subjectController.clear();
-      _messageController.clear();
+
+      _launchEmail(emailLaunchUri);
+    }
+  }
+
+  void _launchEmail(Uri uri) async {
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not launch email app')),
+      );
     }
   }
 
@@ -45,7 +61,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 child: ListTile(
                   leading: Icon(Icons.email, color: Colors.blue),
-                  title: Text('support@allgoz.com', style: TextStyle(fontWeight: FontWeight.bold)),
+                  title: Text('allgozintown@gmail.com', style: TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text('Email Us Anytime'),
                 ),
               ),
@@ -55,7 +71,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 child: ListTile(
                   leading: Icon(Icons.phone, color: Colors.green),
-                  title: Text('+91 98765 43210', style: TextStyle(fontWeight: FontWeight.bold)),
+                  title: Text('+91 9500381132', style: TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text('Call Us (9 AM - 6 PM)'),
                 ),
               ),

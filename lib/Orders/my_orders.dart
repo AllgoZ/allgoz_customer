@@ -1,4 +1,6 @@
 import 'package:allgoz/Orders/track_order.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class MyOrdersScreen extends StatefulWidget {
@@ -10,41 +12,25 @@ class MyOrdersScreen extends StatefulWidget {
 
 class _MyOrdersScreenState extends State<MyOrdersScreen> {
   String selectedTab = 'Current Orders';
+  String? userCustomerId;
 
-  final List<Map<String, dynamic>> currentOrders = [
-    {
-      "orderId": "#67890",
-      "date": "2024-05-22",
-      "status": "Out for Delivery",
-      "totalAmount": 200,
-      "items": [
-        {"name": "Cabbage", "quantity": 3, "price": 20, "image": "assets/product/fruits.png", "weight": "1 kg"}
-      ]
+  @override
+  void initState() {
+    super.initState();
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && user.email != null) {
+      final emailKey = user.email!.replaceAll('.', '_').replaceAll('@', '_');
+      userCustomerId = 'google_$emailKey';
     }
-  ];
-
-  final List<Map<String, dynamic>> deliveredOrders = [
-    {
-      "orderId": "#12345",
-      "date": "2024-05-20",
-      "status": "Delivered",
-      "totalAmount": 150,
-      "items": [
-        {"name": "Spinach", "quantity": 2, "price": 30, "image": "assets/product/fruits.png", "weight": "1 kg"},
-        {"name": "Broccoli", "quantity": 1, "price": 50, "image": "assets/product/Broccoli.jpg", "weight": "500 g"}
-      ]
-    }
-  ];
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Color(0xFF4A90E2),
-        title: Text('My Orders'),
+        backgroundColor: const Color(0xFF4A90E2),
+        title: const Text('My Orders'),
         centerTitle: true,
-
-
       ),
       body: Column(
         children: [
@@ -56,11 +42,37 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
             ],
           ),
           Expanded(
-            child: ListView.builder(
-              itemCount: selectedTab == 'Current Orders' ? currentOrders.length : deliveredOrders.length,
-              itemBuilder: (context, index) {
-                final order = selectedTab == 'Current Orders' ? currentOrders[index] : deliveredOrders[index];
-                return _buildOrderCard(order);
+            child: userCustomerId == null
+                ? const Center(child: CircularProgressIndicator())
+                : StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('orders')
+                  .doc(userCustomerId)
+                  .collection('orders')
+                  .orderBy('orderDate', descending: true)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final docs = snapshot.data!.docs;
+                final orders = docs
+                    .map((doc) => doc.data() as Map<String, dynamic>)
+                    .where((order) => selectedTab == 'Current Orders'
+                    ? order['status'] != 'Delivered'
+                    : order['status'] == 'Delivered')
+                    .toList();
+
+                if (orders.isEmpty) {
+                  return const Center(child: Text("No orders found."));
+                }
+
+                return ListView.builder(
+                  itemCount: orders.length,
+                  itemBuilder: (context, index) {
+                    return _buildOrderCard(orders[index]);
+                  },
+                );
               },
             ),
           ),
@@ -93,15 +105,15 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   Widget _buildOrderCard(Map<String, dynamic> order) {
     return Card(
       elevation: 4,
-      margin: EdgeInsets.all(12),
+      margin: const EdgeInsets.all(12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
-        title: Text(order['orderId'], style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(order['orderId'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Date: ${order['date']}'),
-            Text('Status: ${order['status']}', style: TextStyle(color: Colors.green)),
+            Text('Date: ${order['orderDate'] != null ? (order['orderDate'] as Timestamp).toDate().toString().split(" ")[0] : "N/A"}'),
+            Text('Status: ${order['status']}', style: const TextStyle(color: Colors.green)),
             Text('Total: ₹${order['totalAmount']}'),
           ],
         ),
@@ -126,7 +138,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
 }
 
 void main() {
-  runApp(MaterialApp(
+  runApp(const MaterialApp(
     debugShowCheckedModeBanner: false,
     home: MyOrdersScreen(),
   ));

@@ -10,6 +10,8 @@ import 'package:allgoz/Home/home.dart';
 import 'package:allgoz/Orders/my_orders.dart';
 import 'package:allgoz/Orders/track_order.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AccountScreen extends StatefulWidget {
   @override
@@ -18,6 +20,8 @@ class AccountScreen extends StatefulWidget {
 
 class _AccountScreenState extends State<AccountScreen> {
   int _selectedIndex = 3;
+  String? userName;
+  String? userPhone;
 
   void _onItemTapped(int index) {
     if (index == _selectedIndex) return;
@@ -29,6 +33,31 @@ class _AccountScreenState extends State<AccountScreen> {
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const CartScreen()));
     } else if (index == 2) {
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const FavoritesScreen()));
+    }
+  }
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserInfo();
+  }
+
+  void _fetchUserInfo() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && user.email != null) {
+      String emailKey = user.email!.replaceAll('.', '_').replaceAll('@', '_');
+      String userCustomerId = 'google_$emailKey';
+
+      final doc = await FirebaseFirestore.instance
+          .collection('customers')
+          .doc(userCustomerId)
+          .get();
+
+      if (doc.exists) {
+        setState(() {
+          userName = doc['name'] ?? 'No Name';
+          userPhone = doc['phone'] ?? 'N/A';
+        });
+      }
     }
   }
 
@@ -46,7 +75,7 @@ class _AccountScreenState extends State<AccountScreen> {
         backgroundColor: Colors.grey[200],
         appBar: AppBar(
           backgroundColor: const Color(0xFF4A90E2),
-          title: Text('Account', style: TextStyle(fontSize: 20 * scaleFactor)),
+          title: Text('Account', style: TextStyle(fontSize: 20 * scaleFactor,color:Colors.white,fontWeight: FontWeight.bold)),
           centerTitle: true,
           automaticallyImplyLeading: false,
         ),
@@ -61,8 +90,9 @@ class _AccountScreenState extends State<AccountScreen> {
                   radius: 30 * scaleFactor,
                   backgroundImage: AssetImage('assets/profile.png'),
                 ),
-                title: Text('John Doe', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18 * scaleFactor)),
-                subtitle: Text('+91 98765 43210'),
+                title: Text(userName ?? 'Loading...', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18 * scaleFactor)),
+                subtitle: Text(userPhone ?? ''),
+
                 trailing: Icon(Icons.edit, color: Colors.blue),
                 onTap: () {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => EditProfileScreen()));

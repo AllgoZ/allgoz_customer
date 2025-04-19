@@ -20,39 +20,43 @@ class _CategoryScreenState extends State<CategoryScreen> {
   List<Map<String, dynamic>> categories = [];
   List<Map<String, dynamic>> products = [];
   String selectedType = ""; // Track selected type
-  String? userPhoneNumber;
+  String? userCustomerId;
+
   Map<String, int> cartItems = {}; // ✅ Store productId and quantity
 
   @override
   void initState() {
     super.initState();
-    _fetchUserPhoneNumber();
+    _fetchUserCustomerId();
     _fetchCart();
     _fetchTypes(); // Fetch left sidebar content
     // ✅ Start listening to Firestore cart updates
 
   }
 
-  void _fetchUserPhoneNumber() {
+  void _fetchUserCustomerId() {
     User? user = FirebaseAuth.instance.currentUser;
-    if (user != null && user.phoneNumber != null) {
+    if (user != null && user.email != null) {
       setState(() {
-        userPhoneNumber = user.phoneNumber;
+        userCustomerId = 'google_${user.email!.replaceAll('.', '_').replaceAll('@', '_')}';
       });
-      print("📢 userPhoneNumber set from FirebaseAuth: $userPhoneNumber");
+      print("📢 userCustomerId set from FirebaseAuth: $userCustomerId");
+      _fetchCart(); // Move cart fetch here since ID is set
     } else {
-      print("❌ User is not logged in or phone number is not available!");
+      print("❌ User is not logged in or email is not available!");
     }
   }
 
 
 
+
   void _fetchCart() {
-    if (userPhoneNumber == null) return;
+    if (userCustomerId == null) return;
 
     FirebaseFirestore.instance
         .collection('customers')
-        .doc(userPhoneNumber)
+        .doc(userCustomerId)
+
         .collection('cart')
         .snapshots()
         .listen((snapshot) {
@@ -480,7 +484,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
     final screenHeight = MediaQuery.of(context).size.height;
     final scaleFactor = screenWidth / 390; // iPhone 12 baseline
 
-    if (userPhoneNumber == null) {
+    if (userCustomerId == null) {
       print("User phone number is null, can't show cart modal");
       return;
     }
@@ -497,7 +501,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
           child: StreamBuilder(
             stream: FirebaseFirestore.instance
                 .collection('customers')
-                .doc(userPhoneNumber)
+                .doc(userCustomerId)
+
                 .collection('cart')
                 .snapshots(),
             builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
@@ -612,7 +617,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
 
   Future<void> _updateCart(String productId, Map<String, dynamic> product, int totalQuantity, int baseGrams) async {
-    if (userPhoneNumber == null) {
+    if (userCustomerId == null) {
       print("❌ No userPhoneNumber found! Cart cannot be updated.");
       return;
     }
@@ -629,7 +634,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
     DocumentReference cartRef = FirebaseFirestore.instance
         .collection('customers')
-        .doc(userPhoneNumber)
+        .doc(userCustomerId)
         .collection('cart')
         .doc(productId);
 
@@ -659,13 +664,13 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
 
   void _addToCart(Map<String, dynamic> product) {
-    if (userPhoneNumber == null) {
+    if (userCustomerId == null) {
       print("❌ Waiting for userPhoneNumber... Retrying in 1 second");
       Future.delayed(Duration(seconds: 1), () => _addToCart(product)); // Retry after 1 sec
       return;
     }
 
-    print("🛒 _addToCart() Triggered for ${product['name']} with userPhoneNumber: $userPhoneNumber");
+    print("🛒 _addToCart() Triggered for ${product['name']} with userPhoneNumber: $userCustomerId");
 
     String productId = product['id'];
     int newQuantity = (cartItems[productId] ?? 0) + 1;
@@ -860,11 +865,11 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
 
   Future<void> _updateFavorite(String productId, bool isFavorite) async {
-    if (userPhoneNumber == null) return;
+    if (userCustomerId == null) return;
 
     DocumentReference productRef = FirebaseFirestore.instance
         .collection('customers')
-        .doc(userPhoneNumber)
+        .doc(userCustomerId)
         .collection('cart')
         .doc(productId);
 
@@ -880,7 +885,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
   }
 
   void _removeFromCart(Map<String, dynamic> product) async {
-    if (userPhoneNumber == null) return;
+    if (userCustomerId == null) return;
 
     String productId = product['id']; // Unique product ID
 
@@ -892,7 +897,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
     try {
       await FirebaseFirestore.instance
           .collection('customers')
-          .doc(userPhoneNumber)
+          .doc(userCustomerId)
+
           .collection('cart')
           .doc(productId)
           .delete(); // ✅ Remove item from Firestore
