@@ -27,7 +27,8 @@ class _TrackCurrentOrderScreenState extends State<TrackCurrentOrderScreen> {
   }
 
   Future<void> _fetchRiderDetails(String riderUid) async {
-    final riderSnap = await FirebaseFirestore.instance.collection('delivery_partners').doc(riderUid).get();
+    final riderSnap = await FirebaseFirestore.instance.collection(
+        'delivery_partners').doc(riderUid).get();
     if (riderSnap.exists && riderSnap.data() != null) {
       setState(() {
         riderDetails = riderSnap.data();
@@ -56,120 +57,181 @@ class _TrackCurrentOrderScreenState extends State<TrackCurrentOrderScreen> {
   @override
   Widget build(BuildContext context) {
     final currentOrder = widget.orderData;
+    final scaleFactor = MediaQuery
+        .of(context)
+        .size
+        .width / 390; // Base width for scaling
 
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF4A90E2),
-        title: const Text('Track Order'),
+        title: Text('Track Order',
+          style: TextStyle(
+            fontSize: 20 * scaleFactor,
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.all(16.0 * scaleFactor),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               "Order #${currentOrder['orderId'] ?? ''}",
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                  fontSize: 20 * scaleFactor, fontWeight: FontWeight.bold),
             ),
-            Text("Date: ${currentOrder['orderDate'] != null ? (currentOrder['orderDate'] as Timestamp).toDate().toString().split(" ")[0] : "N/A"}"),
-            const Divider(),
+            Text(
+              "Date: ${currentOrder['orderDate'] != null
+                  ? (currentOrder['orderDate'] as Timestamp).toDate()
+                  .toString()
+                  .split(" ")[0]
+                  : "N/A"}",
+              style: TextStyle(fontSize: 14 * scaleFactor),
+            ),
+            Divider(thickness: 1 * scaleFactor),
 
-            ...List<Widget>.from((currentOrder['items'] as List<dynamic>).map((item) {
-              return ListTile(
-                leading: ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: Image.network(item['imageURL'], height: 50, width: 50, fit: BoxFit.cover),
-                ),
-                title: Text(item['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('${item['unit']} x ${item['quantity']}'),
-                trailing: Text('₹${item['price'] * item['quantity']}'),
-              );
-            })),
+            ...List<Widget>.from(
+                (currentOrder['items'] as List<dynamic>).map((item) {
+                  return ListTile(
+                    contentPadding: EdgeInsets.symmetric(
+                        vertical: 4 * scaleFactor, horizontal: 8 * scaleFactor),
+                    leading: ClipRRect(
+                      borderRadius: BorderRadius.circular(6 * scaleFactor),
+                      child: Image.network(
+                        item['imageURL'],
+                        height: 50 * scaleFactor,
+                        width: 50 * scaleFactor,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    title: Text(item['name'],
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16 * scaleFactor)),
+                    subtitle: Text('${item['unit']} x ${item['quantity']}',
+                        style: TextStyle(fontSize: 14 * scaleFactor)),
+                    trailing: Text('₹${item['price'] * item['quantity']}',
+                        style: TextStyle(fontSize: 14 * scaleFactor)),
+                  );
+                })),
 
-            const Divider(),
+            Divider(thickness: 1 * scaleFactor),
 
             Text(
               "Order Total: ₹${currentOrder['totalAmount'] ?? '--'}",
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                  fontSize: 16 * scaleFactor, fontWeight: FontWeight.bold),
             ),
             if (currentOrder.containsKey('deliveryCharge'))
               Text(
                 "Delivery Fee: ₹${currentOrder['deliveryCharge'] ?? '--'}",
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                    fontSize: 16 * scaleFactor, fontWeight: FontWeight.bold),
               ),
 
-            const Divider(),
+            Divider(thickness: 1 * scaleFactor),
 
             Text(
               "Status: ${currentOrder['status']}",
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
+              style: TextStyle(
+                fontSize: 18 * scaleFactor,
+                fontWeight: FontWeight.bold,
+                color: Colors.green,
+              ),
             ),
-            const SizedBox(height: 5),
+            SizedBox(height: 5 * scaleFactor),
 
-            const Text(
+            Text(
               "Estimated Delivery: 7 - 8 AM",
-              style: TextStyle(fontSize: 16, color: Colors.orange),
+              style: TextStyle(
+                  fontSize: 16 * scaleFactor, color: Colors.orange),
             ),
 
-            const SizedBox(height: 10),
+            SizedBox(height: 10 * scaleFactor),
 
-            const LinearProgressIndicator(
+            LinearProgressIndicator(
               value: 0.75,
               backgroundColor: Colors.grey,
               color: Colors.green,
-              minHeight: 8,
+              minHeight: 8 * scaleFactor,
             ),
-            const SizedBox(height: 20),
 
-            if (currentOrder['status'] == 'Accepted' && currentOrder['mapLinks'] != null && currentOrder['mapLinks']['customer'] != null)
+            SizedBox(height: 20 * scaleFactor),
+
+            if (currentOrder['status'] == 'Accepted' &&
+                currentOrder['mapLinks'] != null &&
+                currentOrder['mapLinks']['customer'] != null)
               ElevatedButton.icon(
                 onPressed: () async {
-                  final Uri mapUrl = Uri.parse(currentOrder['mapLinks']['customer']);
+                  final Uri mapUrl = Uri.parse(
+                      currentOrder['mapLinks']['customer']);
                   if (await canLaunchUrl(mapUrl)) {
                     await launchUrl(mapUrl);
                   }
                 },
-                icon: const Icon(Icons.map),
-                label: const Text('View on Google Maps'),
+                icon: Icon(Icons.map, size: 20 * scaleFactor),
+                label: Text('View on Google Maps',
+                    style: TextStyle(fontSize: 16 * scaleFactor)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: EdgeInsets.symmetric(vertical: 12 * scaleFactor),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10 * scaleFactor)),
                 ),
               ),
 
-            const SizedBox(height: 15),
+            SizedBox(height: 15 * scaleFactor),
 
             if (currentOrder['status'] == 'Accepted' && riderDetails != null)
               ListTile(
-                leading: const Icon(Icons.person, color: Colors.blue),
-                title: Text('Rider: ${riderDetails!['fullName'] ?? 'N/A'}'),
-                subtitle: Text('Phone: ${riderDetails!['phone'] ?? '--'}\nVehicle: ${riderDetails!['vehicleNumber'] ?? '--'}'),
+                contentPadding: EdgeInsets.all(8 * scaleFactor),
+                leading: Icon(
+                    Icons.person, color: Colors.blue, size: 28 * scaleFactor),
+                title: Text('Rider: ${riderDetails!['fullName'] ?? 'N/A'}',
+                    style: TextStyle(fontSize: 16 * scaleFactor)),
+                subtitle: Text(
+                  'Phone: ${riderDetails!['phone'] ?? '--'}\nVehicle: ${riderDetails!['vehicleNumber'] ?? '--'}',
+                  style: TextStyle(fontSize: 14 * scaleFactor),
+                ),
                 trailing: IconButton(
-                  icon: const Icon(Icons.phone, color: Colors.green),
+                  icon: Icon(
+                      Icons.phone, color: Colors.green, size: 28 * scaleFactor),
                   onPressed: () => _makePhoneCall(riderDetails!['phone']),
                 ),
               ),
 
-            const Spacer(),
+            SizedBox(height: 22 * scaleFactor),
 
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
-                    ),
-                    child: const Text('Contact Support', style: TextStyle(color: Colors.white)),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {},
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(9 * scaleFactor),
+                  ),
+                  minimumSize: Size(double.infinity, 50 * scaleFactor),
+                ),
+                child: Text(
+                  'Contact Support',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20 * scaleFactor,
                   ),
                 ),
-              ],
+              ),
             ),
+
           ],
         ),
       ),
+
     );
   }
 }

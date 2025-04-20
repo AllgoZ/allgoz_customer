@@ -99,6 +99,10 @@ class _CartScreenState extends State<CartScreen> {
           centerTitle: true,
           actions: [
             IconButton(
+              icon: const Icon(Icons.video_collection_rounded, color: Colors.white),
+              onPressed: () {},
+            ),
+            IconButton(
               icon: Icon(Icons.delivery_dining, color: Colors.white, size: 24 * scaleFactor),
               onPressed: () {
                 Navigator.push(context, MaterialPageRoute(builder: (context) => MyOrdersScreen()));
@@ -199,12 +203,15 @@ class _CartScreenState extends State<CartScreen> {
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(9 * scaleFactor),
+                          ),
                           minimumSize: Size(double.infinity, 50 * scaleFactor),
                         ),
                         child: Text(
                           'Proceed to Checkout',
-                          style: TextStyle(fontSize: 16 * scaleFactor, fontWeight: FontWeight.bold, color: Colors.white),
+                          style: TextStyle(fontSize: 20 * scaleFactor,  color: Colors.white),
+                        //   fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],

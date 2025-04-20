@@ -74,8 +74,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF4A90E2),
         title: Text('Checkout',
-            style: TextStyle(fontSize: 24 * scaleFactor, fontWeight: FontWeight.bold)),
+            style: TextStyle(fontSize: 24 * scaleFactor,color: Colors.white, fontWeight: FontWeight.bold)),
         centerTitle: true,
+
       ),
       body: Padding(
         padding: EdgeInsets.all(16.0 * scaleFactor),
@@ -175,7 +176,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               title: Text('Packaging Fee', style: TextStyle(fontSize: 18 * scaleFactor)),
                               trailing: Text('₹$packagingFee', style: TextStyle(fontSize: 18 * scaleFactor)),
                             ),
-                            const Divider(),
+                            Divider(thickness: 1 * scaleFactor),
+
                             ListTile(
                               title: Text('Total',
                                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20 * scaleFactor)),
@@ -208,7 +210,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   child: Text('Confirm',
                       style: TextStyle(
                           fontSize: 20 * scaleFactor,
-                          fontWeight: FontWeight.bold,
+                          // fontWeight: FontWeight.bold,
                           color: Colors.white)),
                 ),
               ],
@@ -268,7 +270,6 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
     );
 
 
-
     _controller.forward();
   }
 
@@ -284,7 +285,8 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
 
     if (permission == LocationPermission.deniedForever) return;
 
-    Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+    Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high);
     setState(() {
       latitude = position.latitude;
       longitude = position.longitude;
@@ -292,7 +294,8 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
   }
 
   void _checkDeliveryEligibility() {
-    final now = DateTime.now().toUtc().add(const Duration(hours: 5, minutes: 30)); // Convert to IST
+    final now = DateTime.now().toUtc().add(
+        const Duration(hours: 5, minutes: 30)); // Convert to IST
     final nineAM = DateTime(now.year, now.month, now.day, 9);
 
     final isPast9AM = now.isAfter(nineAM);
@@ -310,7 +313,8 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
     if (user != null) {
       setState(() {
         userUID = user.uid;
-        userCustomerId = 'google_${user.email!.replaceAll('.', '_').replaceAll('@', '_')}';
+        userCustomerId =
+        'google_${user.email!.replaceAll('.', '_').replaceAll('@', '_')}';
       });
 
       DocumentSnapshot userDoc = await FirebaseFirestore.instance
@@ -388,7 +392,8 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
   }
 
   void _placeOrder() async {
-    if (userUID == null || userCustomerId == null || selectedAddress == null || addressDetails == null) {
+    if (userUID == null || userCustomerId == null || selectedAddress == null ||
+        addressDetails == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text("Please select or add an address."),
         backgroundColor: Colors.red,
@@ -400,7 +405,8 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
     await _updateDeliveryDetails();
 
     try {
-      final result = await DeliveryService.checkDeliveryFeasibilityAndPlaceOrder(
+      final result = await DeliveryService
+          .checkDeliveryFeasibilityAndPlaceOrder(
         sellerUid: '344y6ZUTzuWRfjFMzR5mImLNAmt1',
         customerPhoneNumber: userCustomerId!,
         addressId: addressDetails!['id'] ?? 'default',
@@ -415,8 +421,11 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
         return;
       }
 
-      final todayStr = DateTime.now().toLocal().toString().substring(0, 10).replaceAll('-', '');
-      final counterRef = FirebaseFirestore.instance.collection('orderCounter').doc(todayStr);
+      final todayStr = DateTime.now().toLocal().toString()
+          .substring(0, 10)
+          .replaceAll('-', '');
+      final counterRef = FirebaseFirestore.instance.collection('orderCounter')
+          .doc(todayStr);
       final counterSnap = await counterRef.get();
       int counter = 1;
       if (counterSnap.exists) {
@@ -424,7 +433,8 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
       }
       await counterRef.set({'count': counter});
 
-      final customOrderId = 'ORD-$todayStr-${counter.toString().padLeft(6, '0')}';
+      final customOrderId = 'ORD-$todayStr-${counter.toString().padLeft(
+          6, '0')}';
       final user = FirebaseAuth.instance.currentUser;
       final emailKey = user!.email!.replaceAll('.', '_').replaceAll('@', '_');
       userCustomerId = 'google_$emailKey'; // ✅ update the class variable
@@ -435,6 +445,11 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
           .doc(userCustomerId) // ✅ correct path
           .collection('orders')
           .doc(customOrderId);
+// ✅ Ensure parent document exists with 'name' field for seller app visibility
+      await FirebaseFirestore.instance
+          .collection('orders')
+          .doc(userCustomerId)
+          .set({'name': customerName}, SetOptions(merge: true));
 
       await customerOrderRef.set({
         'orderId': customOrderId,
@@ -501,19 +516,35 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
-    final scaleFactor = MediaQuery.of(context).size.width / 390;
+    final scaleFactor = MediaQuery
+        .of(context)
+        .size
+        .width / 390;
 
     return Stack(
       children: [
         Scaffold(
           appBar: AppBar(
             backgroundColor: const Color(0xFF4A90E2),
-            title: const Text('Delivery Details',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            title: Text(
+              'Delivery Details',
+              style: TextStyle(
+                fontSize: 24 * scaleFactor,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             centerTitle: true,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.video_collection_rounded, color: Colors.white),
+                onPressed: () {},
+              ),
+
+            ],
           ),
           body: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: EdgeInsets.all(16.0 * scaleFactor),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -525,31 +556,53 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
                         child: Card(
                           elevation: 4,
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
+                            borderRadius: BorderRadius.circular(
+                                12 * scaleFactor),
+                          ),
                           child: ListTile(
-                            title: const Text('Delivery Address',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 20)),
+                            title: Text(
+                              'Delivery Address',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20 * scaleFactor,
+                              ),
+                            ),
                             subtitle: selectedAddress != null
-                                ? Text(selectedAddress!, style: const TextStyle(fontSize: 18))
-                                : const Text("No address found", style: TextStyle(fontSize: 18, color: Colors.red)),
+                                ? Text(
+                              selectedAddress!,
+                              style: TextStyle(fontSize: 18 * scaleFactor),
+                            )
+                                : Text(
+                              "No address found",
+                              style: TextStyle(
+                                fontSize: 18 * scaleFactor,
+                                color: Colors.red,
+                              ),
+                            ),
                             trailing: TextButton(
                               onPressed: () {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                      builder: (context) => ManageAddressesScreen()),
+                                    builder: (context) =>
+                                        ManageAddressesScreen(),
+                                  ),
                                 ).then((_) {
                                   _fetchUserDetails();
                                 });
                               },
-                              child: const Text('Add Address',
-                                  style: TextStyle(color: Colors.blue, fontSize: 16)),
+                              child: Text(
+                                'Add Address',
+                                style: TextStyle(
+                                  color: Colors.blue,
+                                  fontSize: 16 * scaleFactor,
+                                ),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      SizedBox(height: 20 * scaleFactor),
                       _buildSelectionCard(
                         'Delivery Day',
                         isAfter9AM ? ['Tomorrow'] : ['Today', 'Tomorrow'],
@@ -560,57 +613,70 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
                             _updateDeliveryDetails();
                           });
                         },
+                        scaleFactor,
                       ),
                       if (isAfter9AM)
                         Padding(
-                          padding: const EdgeInsets.only(top: 10),
+                          padding: EdgeInsets.only(top: 10 * scaleFactor),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 "🕗 Your order will be delivered tomorrow morning at 7 - 8 AM.\n\n🕗 உங்கள் ஆர்டர் நாளை காலை 7 - 8 மணிக்கு டெலிவரி செய்யப்படும்.\n",
                                 style: TextStyle(
-                                  fontSize: 16,
+                                  fontSize: 16 * scaleFactor,
                                   color: Colors.orange[800],
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              SizedBox(height: 4),
+                              SizedBox(height: 4 * scaleFactor),
                               Text(
                                 "✅ Today delivery is available only for orders placed before 9 AM.\n\n✅ இன்று காலை 9 மணிக்கு முன் செய்யப்படும் ஆர்டர்களுக்கு மட்டுமே டெலிவரி கிடைக்கும்.",
                                 style: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: 14 * scaleFactor,
                                   color: Colors.grey[700],
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      const SizedBox(height: 20),
+                      SizedBox(height: 20 * scaleFactor),
                       if (paymentMethods.isNotEmpty)
-                        _buildSelectionCard('Payment Method', paymentMethods, selectedPaymentMethod, (value) {
-                          setState(() {
-                            selectedPaymentMethod = value;
-                            _updateDeliveryDetails();
-                          });
-                        }),
+                        _buildSelectionCard(
+                          'Payment Method',
+                          paymentMethods,
+                          selectedPaymentMethod,
+                              (value) {
+                            setState(() {
+                              selectedPaymentMethod = value;
+                              _updateDeliveryDetails();
+                            });
+                          },
+                          scaleFactor,
+                        ),
                     ],
                   ),
                 ),
-                ElevatedButton(
-                  onPressed: _placeOrder,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(9),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _placeOrder,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(9 * scaleFactor),
+                      ),
+                      minimumSize: Size(double.infinity, 50 * scaleFactor),
                     ),
-                    minimumSize: const Size(double.infinity, 50),
-                  ),
-                  child: const Text('Place Order',
+                    child: Text(
+                      'Place Order',
                       style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white)),
+                        fontSize: 20 * scaleFactor,
+
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -637,19 +703,29 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildSelectionCard(String title, List<String> options, String selectedValue, ValueChanged<String> onChanged) {
+  Widget _buildSelectionCard(String title, List<String> options,
+      String selectedValue, ValueChanged<String> onChanged,
+      double scaleFactor) {
     return Card(
       elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Column(
-        children: options
-            .map((option) => RadioListTile(
-          title: Text(option),
-          value: option,
-          groupValue: selectedValue,
-          onChanged: (value) => onChanged(value!),
-        ))
-            .toList(),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12 * scaleFactor)),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8 * scaleFactor),
+        child: Column(
+          children: options
+              .map((option) =>
+              RadioListTile(
+                title: Text(
+                    option, style: TextStyle(fontSize: 16 * scaleFactor)),
+                value: option,
+                groupValue: selectedValue,
+                onChanged: (value) => onChanged(value!),
+                contentPadding: EdgeInsets.symmetric(
+                    horizontal: 4 * scaleFactor),
+              ))
+              .toList(),
+        ),
       ),
     );
   }

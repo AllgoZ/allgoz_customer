@@ -260,12 +260,16 @@ class _CategoryScreenState extends State<CategoryScreen> {
       appBar: AppBar(
         title: Text(
           widget.categoryName,
-          style: TextStyle(fontSize: 18 * scaleFactor),
+          style: TextStyle(fontSize: 20 * scaleFactor,color: Colors.white),
         ),
         backgroundColor: const Color(0xFF4A90E2),
         actions: [
           IconButton(
-            icon: Icon(Icons.shopping_cart, size: 24 * scaleFactor),
+            icon: const Icon(Icons.video_collection_rounded, color: Colors.white),
+            onPressed: () {},
+          ),
+          IconButton(
+            icon: Icon(Icons.shopping_cart, size: 24 * scaleFactor,color: Colors.white),
             onPressed: () {
               Navigator.push(context, MaterialPageRoute(builder: (context) => CartScreen()));
             },
@@ -456,7 +460,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
                               borderRadius: BorderRadius.circular(9),
                               side: const BorderSide(color: Colors.green),
                             ),
-                            minimumSize: Size(screenWidth * 0.4, screenHeight * 0.049),
+                            minimumSize: Size(screenWidth * 0.4, screenHeight * 0.047),
                           ),
                           child: Text("ADD",
                               style: TextStyle(
@@ -465,7 +469,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
                                   fontWeight: FontWeight.bold)),
                         )
                             : Container(
-                          height: screenHeight * 0.049,
+                          height: screenHeight * 0.047,
                           width: screenWidth * 0.38,
                           decoration: BoxDecoration(
                             color: Colors.white,
@@ -546,7 +550,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
-                  padding: EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+                  padding: EdgeInsets.symmetric(horizontal: 30*scaleFactor, vertical: 12*scaleFactor),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -616,7 +620,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
                         ),
                       ],
                     ),
-                    Divider(),
+                    Divider(thickness: 1 * scaleFactor),
 
                     // 🔹 Cart List
                     Expanded(
@@ -883,17 +887,18 @@ class _CategoryScreenState extends State<CategoryScreen> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(9 * scaleFactor),
                             ),
-                            minimumSize: Size(double.infinity, 50 * scaleFactor),
+                            minimumSize: Size(double.infinity, 48 * scaleFactor),
                           ),
                           child: Text("Add to Cart",
                               style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 16 * scaleFactor)),
+                                  fontSize: 18 * scaleFactor)),
                         )
                             : Container(
                           decoration: BoxDecoration(
                             color: Colors.white,
+
                             borderRadius: BorderRadius.circular(9 * scaleFactor),
                             border: Border.all(color: Colors.green, width: 2),
                           ),
@@ -902,7 +907,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
                             children: [
                               IconButton(
                                 icon: Icon(Icons.remove,
-                                    color: Colors.green, size: 20 * scaleFactor),
+                                    color: Colors.green, size: 18 * scaleFactor),
+
                                 onPressed: () {
                                   setModalState(() {
                                     if (totalQuantity > 1) {

@@ -11,7 +11,7 @@ class ManageAddressesScreen extends StatefulWidget {
 
 class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
   String? userCustomerId;
-  String? defaultAddressId; // Store the default address ID
+  String? defaultAddressId;
 
   @override
   void initState() {
@@ -48,9 +48,10 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
   void _setDefaultAddress(String addressId) async {
     if (userCustomerId == null) return;
 
-    await FirebaseFirestore.instance.collection('customers').doc(userCustomerId).update({
-      'defaultAddress': addressId,
-    });
+    await FirebaseFirestore.instance
+        .collection('customers')
+        .doc(userCustomerId)
+        .update({'defaultAddress': addressId});
 
     setState(() {
       defaultAddressId = addressId;
@@ -74,9 +75,10 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
         .delete();
 
     if (isDefault) {
-      await FirebaseFirestore.instance.collection('customers').doc(userCustomerId).update({
-        'defaultAddress': null,
-      });
+      await FirebaseFirestore.instance
+          .collection('customers')
+          .doc(userCustomerId)
+          .update({'defaultAddress': null});
 
       setState(() {
         defaultAddressId = null;
@@ -94,7 +96,7 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => EditAddressScreen(address: addressData),
+        builder: (context) => EditAddressScreen(addressId: addressId),
       ),
     ).then((updatedAddress) {
       if (updatedAddress != null) {
@@ -104,35 +106,36 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
             .collection('addresses')
             .doc(addressId)
             .update(updatedAddress);
-
+        _fetchDefaultAddress();
         setState(() {});
       }
     });
   }
 
-  void _addNewAddress() {
-    Navigator.push(
+  void _addNewAddress() async {
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => NewAddressScreen()),
-    ).then((newAddress) {
-      if (newAddress != null) {
-        FirebaseFirestore.instance
-            .collection('customers')
-            .doc(userCustomerId)
-            .collection('addresses')
-            .add(newAddress);
-
-        setState(() {});
-      }
-    });
+    );
+    await _fetchDefaultAddress();
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
+    final scaleFactor = MediaQuery.of(context).size.width / 390;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Color(0xFF4A90E2),
-        title: Text("Manage Addresses"),
+        title: Text(
+          "Manage Addresses",
+          style: TextStyle(
+            fontSize: 20 * scaleFactor,
+            color: Colors.white,
+            // fontWeight: FontWeight.bold,
+          ),
+        ),
         centerTitle: true,
       ),
       body: userCustomerId == null
@@ -154,7 +157,7 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
             return Center(
               child: Text(
                 "No addresses found. Add a new address!",
-                style: TextStyle(fontSize: 16, color: Colors.grey),
+                style: TextStyle(fontSize: 16 * scaleFactor, color: Colors.grey),
               ),
             );
           }
@@ -169,9 +172,18 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
 
               return Card(
                 elevation: 4,
-                margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                margin: EdgeInsets.symmetric(
+                  horizontal: 16 * scaleFactor,
+                  vertical: 6 * scaleFactor,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12 * scaleFactor),
+                ),
                 child: ListTile(
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 5 * scaleFactor,
+                    vertical: 5 * scaleFactor,
+                  ),
                   leading: Icon(
                     addressData['type'] == 'Home'
                         ? Icons.home
@@ -179,19 +191,27 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
                         ? Icons.work
                         : Icons.location_on,
                     color: Color(0xFF4A90E2),
+                    size: 26 * scaleFactor,
                   ),
                   title: Text(
                     addressData['type'],
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16 * scaleFactor,
+                    ),
                   ),
                   subtitle: Text(
                     "${addressData['house']}, ${addressData['street']}, ${addressData['city']}, ${addressData['state']} - ${addressData['pincode']}",
-                    style: TextStyle(color: Colors.black87),
+                    style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: 14 * scaleFactor,
+                    ),
                   ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (isDefault) Icon(Icons.check_circle, color: Colors.green),
+                      if (isDefault)
+                        Icon(Icons.check_circle, color: Colors.green, size: 22 * scaleFactor),
                       PopupMenuButton<String>(
                         onSelected: (value) {
                           if (value == "Edit") {
@@ -203,9 +223,19 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
                           }
                         },
                         itemBuilder: (BuildContext context) => [
-                          PopupMenuItem(value: "Edit", child: Text("Edit")),
-                          PopupMenuItem(value: "Delete", child: Text("Delete")),
-                          if (!isDefault) PopupMenuItem(value: "Set Default", child: Text("Set as Default")),
+                          PopupMenuItem(
+                            value: "Edit",
+                            child: Text("Edit", style: TextStyle(fontSize: 14 * scaleFactor)),
+                          ),
+                          PopupMenuItem(
+                            value: "Delete",
+                            child: Text("Delete", style: TextStyle(fontSize: 14 * scaleFactor)),
+                          ),
+                          if (!isDefault)
+                            PopupMenuItem(
+                              value: "Set Default",
+                              child: Text("Set as Default", style: TextStyle(fontSize: 14 * scaleFactor)),
+                            ),
                         ],
                       ),
                     ],
@@ -219,8 +249,10 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
       floatingActionButton: FloatingActionButton(
         onPressed: _addNewAddress,
         backgroundColor: Colors.green,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Icon(Icons.add, size: 28),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12 * scaleFactor),
+        ),
+        child: Icon(Icons.add, size: 28 * scaleFactor),
       ),
     );
   }

@@ -53,11 +53,15 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
       child: Scaffold(
         appBar: AppBar(
           backgroundColor: const Color(0xFF4A90E2),
-          title: Text('My Orders', style: TextStyle(fontSize: 20 * scaleFactor)),
+          title: Text(
+            'My Orders',
+            style: TextStyle(fontSize: 20 * scaleFactor,color: Colors.white, fontWeight: FontWeight.bold),
+          ),
           centerTitle: true,
         ),
         body: Column(
           children: [
+            SizedBox(height: 12 * scaleFactor),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -65,6 +69,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                 _buildTabButton('Delivered Orders', scaleFactor),
               ],
             ),
+            SizedBox(height: 10 * scaleFactor),
             Expanded(
               child: userCustomerId == null
                   ? const Center(child: CircularProgressIndicator())
@@ -88,7 +93,14 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                       .toList();
 
                   if (orders.isEmpty) {
-                    return const Center(child: Text("No orders found."));
+                    return Padding(
+                      padding: EdgeInsets.all(24.0 * scaleFactor),
+                      child: Text(
+                        "No orders found.",
+                        style: TextStyle(fontSize: 16 * scaleFactor),
+                        textAlign: TextAlign.center,
+                      ),
+                    );
                   }
 
                   return ListView.builder(
@@ -107,6 +119,8 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
           selectedItemColor: const Color(0xFF4A90E2),
           unselectedItemColor: Colors.grey,
           onTap: _onItemTapped,
+          selectedFontSize: 14 * scaleFactor,
+          unselectedFontSize: 12 * scaleFactor,
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.shopping_bag), label: 'Home'),
             BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: 'Cart'),

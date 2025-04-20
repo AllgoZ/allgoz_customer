@@ -51,7 +51,8 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
       );
 
       setState(() {
-        _locationController.text = "Latitude: ${position.latitude}, Longitude: ${position.longitude}";
+        _locationController.text =
+        "Latitude: ${position.latitude}, Longitude: ${position.longitude}";
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -66,6 +67,14 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
 
   Future<void> _saveAddress() async {
     if (_formKey.currentState!.validate()) {
+      // 🔒 Ensure current location is selected
+      if (_locationController.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Please fetch your current location before saving.")),
+        );
+        return;
+      }
+
       User? user = FirebaseAuth.instance.currentUser;
       if (user == null || user.email == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -100,7 +109,6 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
             .doc();
 
         await newAddressRef.set(addressData);
-
         if (_setAsDefault) {
           await FirebaseFirestore.instance
               .collection('customers')
@@ -121,50 +129,85 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery
+        .of(context)
+        .size
+        .width;
+    final scaleFactor = screenWidth / 390;
+
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Color(0xFF4A90E2),
-        title: Text("Add New Address"),
+        backgroundColor: const Color(0xFF4A90E2),
+        title: Text(
+            "Add New Address", style: TextStyle(fontSize: 20 * scaleFactor, color: Colors.white
+        )),
         centerTitle: true,
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(16.0 * scaleFactor),
         child: Form(
           key: _formKey,
           child: ListView(
             children: [
-              _buildTextField("Full Name", _nameController),
-              _buildTextField("Phone Number", _phoneController, keyboardType: TextInputType.phone),
-              _buildTextField("Alternate Phone (Optional)", _altPhoneController, keyboardType: TextInputType.phone, optional: true),
-              _buildTextField("House/Flat No, Building Name", _houseController),
-              _buildTextField("Street & Locality", _streetController),
-              _buildTextField("Landmark (Optional)", _landmarkController, optional: true),
-              _buildTextField("City", _cityController),
-              _buildTextField("State", _stateController, optional: true),
-              _buildTextField("Pincode", _pincodeController, keyboardType: TextInputType.number, optional: true),
+              _buildTextField("Full Name", _nameController, scaleFactor),
+              _buildTextField("Phone Number", _phoneController, scaleFactor,
+                  keyboardType: TextInputType.phone),
+              _buildTextField("Alternate Phone (Optional)", _altPhoneController,
+                  scaleFactor, keyboardType: TextInputType.phone,
+                  optional: true),
+              _buildTextField("House/Flat No, Building Name", _houseController,
+                  scaleFactor),
+              _buildTextField(
+                  "Street & Locality", _streetController, scaleFactor),
+              _buildTextField(
+                  "Landmark (Optional)", _landmarkController, scaleFactor,
+                  optional: true),
+              _buildTextField("City", _cityController, scaleFactor),
+              _buildTextField(
+                  "State", _stateController, scaleFactor, optional: true),
+              _buildTextField("Pincode", _pincodeController, scaleFactor,
+                  keyboardType: TextInputType.number, optional: true),
+              _buildTextField(
+                  "Current Location", _locationController, scaleFactor,
+                  readOnly: true),
 
-              _buildTextField("Current Location", _locationController, readOnly: true),
+              SizedBox(height: 8 * scaleFactor),
+
               ElevatedButton(
                 onPressed: _getCurrentLocation,
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-                child: Text("Get Current Location"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  padding: EdgeInsets.symmetric(vertical: 14 * scaleFactor),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8 * scaleFactor)),
+                ),
+                child: Text("Get Current Location", style: TextStyle(
+                    fontSize: 16 * scaleFactor, color: Colors.white)),
               ),
 
-              SizedBox(height: 10),
+              SizedBox(height: 10 * scaleFactor),
 
               DropdownButtonFormField<String>(
                 value: _addressType,
                 items: ['Home', 'Work', 'Other'].map((type) {
-                  return DropdownMenuItem(value: type, child: Text(type));
+                  return DropdownMenuItem(
+                      value: type, child: Text(type, style: TextStyle(
+                      fontSize: 14 * scaleFactor)));
                 }).toList(),
                 onChanged: (value) => setState(() => _addressType = value!),
-                decoration: InputDecoration(labelText: 'Address Type', border: OutlineInputBorder()),
+                decoration: InputDecoration(
+                  labelText: 'Address Type',
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8 * scaleFactor)),
+                ),
               ),
 
               SwitchListTile(
-                title: Text("Set as Default Address"),
+                title: Text("Set as Default Address",
+                    style: TextStyle(fontSize: 14 * scaleFactor)),
                 value: _setAsDefault,
                 onChanged: (value) {
                   setState(() {
@@ -173,16 +216,21 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
                 },
               ),
 
-              SizedBox(height: 20),
+              SizedBox(height: 20 * scaleFactor),
 
-              ElevatedButton(
-                onPressed: _saveAddress,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  minimumSize: Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _saveAddress,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    padding: EdgeInsets.symmetric(vertical: 14 * scaleFactor),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(9 * scaleFactor)),
+                  ),
+                  child: Text("Save Address", style: TextStyle(
+                      fontSize: 18 * scaleFactor, color: Colors.white)),
                 ),
-                child: Text("Save Address", style: TextStyle(fontSize: 18)),
               ),
             ],
           ),
@@ -191,10 +239,13 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
     );
   }
 
+
   Widget _buildTextField(String label, TextEditingController controller,
-      {TextInputType keyboardType = TextInputType.text, bool readOnly = false, bool optional = false}) {
+      double scaleFactor,
+      {TextInputType keyboardType = TextInputType
+          .text, bool readOnly = false, bool optional = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: EdgeInsets.symmetric(vertical: 8.0 * scaleFactor),
       child: TextFormField(
         controller: controller,
         keyboardType: keyboardType,
@@ -205,7 +256,15 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
           }
           return null;
         },
-        decoration: InputDecoration(labelText: label, border: OutlineInputBorder()),
+        style: TextStyle(fontSize: 16 * scaleFactor),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(fontSize: 14 * scaleFactor),
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8 * scaleFactor)),
+          contentPadding: EdgeInsets.symmetric(
+              horizontal: 12 * scaleFactor, vertical: 10 * scaleFactor),
+        ),
       ),
     );
   }
