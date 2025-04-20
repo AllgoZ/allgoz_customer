@@ -23,7 +23,6 @@ class _EnterNamePageState extends State<EnterNamePage> {
     _user = FirebaseAuth.instance.currentUser;
   }
 
-  /// Store user details in Firestore
   Future<void> _submitName(BuildContext context) async {
     if (_nameController.text.trim().isEmpty) {
       _showSnackbar('Please enter your name');
@@ -83,99 +82,161 @@ class _EnterNamePageState extends State<EnterNamePage> {
 
   @override
   Widget build(BuildContext context) {
+    final scaleFactor = MediaQuery.of(context).size.width / 390;
+
     return Scaffold(
       resizeToAvoidBottomInset: false,
       body: Stack(
         fit: StackFit.expand,
         children: [
           Padding(
-            padding: const EdgeInsets.all(20.0),
+            padding: EdgeInsets.all(20.0 * scaleFactor),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const SizedBox(height: 100),
-                const Center(
+                SizedBox(height: 100 * scaleFactor),
+                Center(
                   child: Text(
                     'Ready to Explore Your Town?',
-                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, fontFamily: 'Majalla', color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 28 * scaleFactor,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Majalla',
+                      color: Colors.grey,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
-                const SizedBox(height: 50),
+                SizedBox(height: 50 * scaleFactor),
 
+                // ✅ Name Field
                 Container(
-                  width: 312,
-                  height: 47,
+                  width: double.infinity,
+                  height: 50 * scaleFactor,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(12 * scaleFactor),
                     color: Colors.white.withOpacity(0.8),
                     boxShadow: const [
-                      BoxShadow(color: Colors.black26, spreadRadius: 2, blurRadius: 8, offset: Offset(0, 4))
+                      BoxShadow(
+                        color: Colors.black26,
+                        spreadRadius: 2,
+                        blurRadius: 8,
+                        offset: Offset(0, 4),
+                      ),
                     ],
                   ),
                   child: TextField(
                     controller: _nameController,
+                    maxLines: 1,
+                    textInputAction: TextInputAction.done,
                     decoration: InputDecoration(
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(9)),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12 * scaleFactor, vertical: 10 * scaleFactor),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(9 * scaleFactor),
+                      ),
                       hintText: 'Enter Your Name',
-                      hintStyle: const TextStyle(fontFamily: 'Majalla', fontSize: 23, color: Colors.grey),
+                      hintStyle: TextStyle(
+                        fontFamily: 'Majalla',
+                        fontSize: 20 * scaleFactor,
+                        color: Colors.grey,
+                      ),
                       filled: true,
                       fillColor: Colors.transparent,
                     ),
-                    style: const TextStyle(fontFamily: 'Majalla', fontSize: 23, color: Colors.black, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontFamily: 'Majalla',
+                      fontSize: 20 * scaleFactor,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
 
-                const SizedBox(height: 20),
+                SizedBox(height: 20 * scaleFactor),
 
                 GestureDetector(
                   onTap: () => setState(() => _showReferralInput = true),
-                  child: const Text(
+                  child: Text(
                     'Have a Referral Code?',
-                    style: TextStyle(fontFamily: 'Majalla', fontSize: 21, color: Color(0xFF1C85EA), fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontFamily: 'Majalla',
+                      fontSize: 18 * scaleFactor,
+                      color: const Color(0xFF1C85EA),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
 
                 if (_showReferralInput)
                   Container(
-                    width: 312,
-                    height: 47,
-                    margin: const EdgeInsets.only(top: 20),
+                    width: double.infinity,
+                    height: 50 * scaleFactor,
+                    margin: EdgeInsets.only(top: 20 * scaleFactor),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(12 * scaleFactor),
                       color: Colors.white.withOpacity(0.8),
                       boxShadow: const [
-                        BoxShadow(color: Colors.black26, spreadRadius: 2, blurRadius: 8, offset: Offset(0, 4))
+                        BoxShadow(
+                          color: Colors.black26,
+                          spreadRadius: 2,
+                          blurRadius: 8,
+                          offset: Offset(0, 4),
+                        ),
                       ],
                     ),
                     child: TextField(
                       controller: _referralController,
+                      textInputAction: TextInputAction.done,
                       decoration: InputDecoration(
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12 * scaleFactor, vertical: 10 * scaleFactor),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12 * scaleFactor),
+                          borderSide: BorderSide.none,
+                        ),
                         hintText: 'Enter Referral Code',
-                        hintStyle: const TextStyle(fontFamily: 'Majalla', fontWeight: FontWeight.bold, fontSize: 22, color: Colors.grey),
+                        hintStyle: TextStyle(
+                          fontFamily: 'Majalla',
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18 * scaleFactor,
+                          color: Colors.grey,
+                        ),
                         filled: true,
                         fillColor: Colors.transparent,
                       ),
-                      style: const TextStyle(fontFamily: 'Majalla', fontSize: 22, color: Colors.black),
+                      style: TextStyle(
+                        fontFamily: 'Majalla',
+                        fontSize: 18 * scaleFactor,
+                        color: Colors.black,
+                      ),
                     ),
                   ),
 
-                const SizedBox(height: 40),
+                SizedBox(height: 40 * scaleFactor),
 
-                ElevatedButton(
-                  onPressed: _isLoading ? null : () => _submitName(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4CAF50).withOpacity(0.9),
-                    minimumSize: const Size(312, 50),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    shadowColor: Colors.black.withOpacity(0.3),
-                    elevation: 10,
-                  ),
-                  child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text(
-                    'Explore',
-                    style: TextStyle(fontFamily: 'Majalla', fontSize: 30, color: Colors.white, fontWeight: FontWeight.bold),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : () => _submitName(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF4CAF50).withOpacity(0.9),
+                      minimumSize: Size(double.infinity, 50 * scaleFactor),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12 * scaleFactor),
+                      ),
+                      shadowColor: Colors.black.withOpacity(0.3),
+                      elevation: 10,
+                    ),
+                    child: _isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : Text(
+                      'Explore',
+                      style: TextStyle(
+                        fontFamily: 'Majalla',
+                        fontSize: 24 * scaleFactor,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
               ],

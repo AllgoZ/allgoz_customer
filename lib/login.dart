@@ -87,35 +87,61 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class LoginPage extends StatelessWidget {
+class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  bool _isSigningIn = false;
+
   Future<void> _signInWithGoogle(BuildContext context) async {
-    final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-    if (googleUser == null) return; // Cancelled
+    setState(() => _isSigningIn = true);
 
-    final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-    final credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
-    );
+    try {
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) {
+        setState(() => _isSigningIn = false);
+        return; // Sign-in cancelled
+      }
 
-    final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
-    final user = userCredential.user;
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
 
-    if (user == null) return;
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      final user = userCredential.user;
 
-    final doc = await FirebaseFirestore.instance.collection('customers').doc(user.uid).get();
+      if (user == null) {
+        setState(() => _isSigningIn = false);
+        return;
+      }
 
-    if (doc.exists) {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomePage()));
-    } else {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const EnterNamePage()));
+      final doc = await FirebaseFirestore.instance.collection('customers').doc(user.uid).get();
+      setState(() => _isSigningIn = false);
+
+      if (doc.exists) {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomePage()));
+      } else {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const EnterNamePage()));
+      }
+    } catch (e) {
+      setState(() => _isSigningIn = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Sign-in failed: ${e.toString()}")),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final scaleFactor = screenWidth / 390;
+
     return Scaffold(
       resizeToAvoidBottomInset: false,
       body: Stack(
@@ -123,26 +149,42 @@ class LoginPage extends StatelessWidget {
         children: [
           const BackgroundWidget(),
           Padding(
-            padding: const EdgeInsets.all(20.0),
+            padding: EdgeInsets.all(20.0 * scaleFactor),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const SizedBox(height: 100),
-                // const Text('AllGoZ', style: TextStyle(fontSize: 50, fontWeight: FontWeight.bold, color: Colors.blue)),
+                SizedBox(height: 100 * scaleFactor),
                 Image.asset(
-                  'assets/icons/5.png', // replace with your actual image path
-                  height: 250,
+                  'assets/icons/5.png',
+                  height: 250 * scaleFactor,
                 ),
-
-                const Text('Explore Your Town', style: TextStyle(fontSize: 30, color: Colors.grey,fontWeight: FontWeight.bold)),
-                const SizedBox(height: 100),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.login,color:Colors.white),
-                  label: const Text("Continue with Google", style: TextStyle(fontSize: 21,color: Colors.white,fontWeight: FontWeight.bold)),
+                Text(
+                  'Explore Your Town',
+                  style: TextStyle(
+                    fontSize: 30 * scaleFactor,
+                    color: Colors.grey,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 100 * scaleFactor),
+                _isSigningIn
+                    ? const CircularProgressIndicator(color: Colors.green)
+                    : ElevatedButton.icon(
+                  icon: Icon(Icons.login, color: Colors.white, size: 24 * scaleFactor),
+                  label: Text(
+                    "Continue with Google",
+                    style: TextStyle(
+                      fontSize: 21 * scaleFactor,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
-                    minimumSize: const Size(312, 50),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    minimumSize: Size(312 * scaleFactor, 50 * scaleFactor),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12 * scaleFactor),
+                    ),
                   ),
                   onPressed: () => _signInWithGoogle(context),
                 ),
