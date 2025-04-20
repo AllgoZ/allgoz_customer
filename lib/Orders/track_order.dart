@@ -1,53 +1,28 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher_string.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:android_intent_plus/flag.dart';
 import 'dart:io';
+
 class TrackCurrentOrderScreen extends StatefulWidget {
-  const TrackCurrentOrderScreen({super.key});
+  final Map<String, dynamic> orderData;
+  const TrackCurrentOrderScreen({super.key, required this.orderData});
 
   @override
   State<TrackCurrentOrderScreen> createState() => _TrackCurrentOrderScreenState();
 }
 
 class _TrackCurrentOrderScreenState extends State<TrackCurrentOrderScreen> {
-  Map<String, dynamic>? currentOrder;
-  String? userCustomerId;
   Map<String, dynamic>? riderDetails;
 
   @override
   void initState() {
     super.initState();
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null && user.email != null) {
-      final emailKey = user.email!.replaceAll('.', '_').replaceAll('@', '_');
-      userCustomerId = 'google_$emailKey';
-      _fetchLatestOrder();
-    }
-  }
-
-  Future<void> _fetchLatestOrder() async {
-    if (userCustomerId == null) return;
-    final snapshot = await FirebaseFirestore.instance
-        .collection('orders')
-        .doc(userCustomerId)
-        .collection('orders')
-        .orderBy('orderDate', descending: true)
-        .limit(1)
-        .get();
-
-    if (snapshot.docs.isNotEmpty) {
-      final orderData = snapshot.docs.first.data();
-      setState(() {
-        currentOrder = orderData;
-      });
-
-      if (orderData['status'] == 'Accepted' && orderData['deliveryPartnerUid'] != null) {
-        _fetchRiderDetails(orderData['deliveryPartnerUid']);
-      }
+    final order = widget.orderData;
+    if (order['status'] == 'Accepted' && order['deliveryPartnerUid'] != null) {
+      _fetchRiderDetails(order['deliveryPartnerUid']);
     }
   }
 
@@ -60,37 +35,6 @@ class _TrackCurrentOrderScreenState extends State<TrackCurrentOrderScreen> {
     }
   }
 
-  Future<void> _cancelOrder() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirm Cancellation'),
-        content: const Text('Are you sure you want to cancel this order?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Yes')),
-        ],
-      ),
-    );
-
-    if (confirm != true) return;
-
-    if (userCustomerId == null || currentOrder == null) return;
-    final orderId = currentOrder!['orderId'];
-    await FirebaseFirestore.instance
-        .collection('orders')
-        .doc(userCustomerId)
-        .collection('orders')
-        .doc(orderId)
-        .update({'status': 'User_Cancelled'});
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Order cancelled successfully.')),
-    );
-
-    _fetchLatestOrder();
-  }
-
   void _makePhoneCall(String phoneNumber) async {
     if (Platform.isAndroid) {
       final intent = AndroidIntent(
@@ -100,7 +44,6 @@ class _TrackCurrentOrderScreenState extends State<TrackCurrentOrderScreen> {
       );
       await intent.launch();
     } else {
-      // iOS fallback
       final Uri url = Uri.parse('tel:$phoneNumber');
       if (await canLaunchUrl(url)) {
         await launchUrl(url);
@@ -112,27 +55,27 @@ class _TrackCurrentOrderScreenState extends State<TrackCurrentOrderScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentOrder = widget.orderData;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF4A90E2),
         title: const Text('Track Order'),
         centerTitle: true,
       ),
-      body: currentOrder == null
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
+      body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "Order #${currentOrder!['orderId'] ?? ''}",
+              "Order #${currentOrder['orderId'] ?? ''}",
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            Text("Date: ${currentOrder!['orderDate'] != null ? (currentOrder!['orderDate'] as Timestamp).toDate().toString().split(" ")[0] : "N/A"}"),
+            Text("Date: ${currentOrder['orderDate'] != null ? (currentOrder['orderDate'] as Timestamp).toDate().toString().split(" ")[0] : "N/A"}"),
             const Divider(),
 
-            ...List<Widget>.from((currentOrder!['items'] as List<dynamic>).map((item) {
+            ...List<Widget>.from((currentOrder['items'] as List<dynamic>).map((item) {
               return ListTile(
                 leading: ClipRRect(
                   borderRadius: BorderRadius.circular(6),
@@ -147,19 +90,19 @@ class _TrackCurrentOrderScreenState extends State<TrackCurrentOrderScreen> {
             const Divider(),
 
             Text(
-              "Order Total: ₹${currentOrder!['totalAmount'] ?? '--'}",
+              "Order Total: ₹${currentOrder['totalAmount'] ?? '--'}",
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
-            if (currentOrder!.containsKey('deliveryCharge'))
+            if (currentOrder.containsKey('deliveryCharge'))
               Text(
-                "Delivery Fee: ₹${currentOrder!['deliveryCharge'] ?? '--'}",
+                "Delivery Fee: ₹${currentOrder['deliveryCharge'] ?? '--'}",
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
 
             const Divider(),
 
             Text(
-              "Status: ${currentOrder!['status']}",
+              "Status: ${currentOrder['status']}",
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
             ),
             const SizedBox(height: 5),
@@ -179,43 +122,33 @@ class _TrackCurrentOrderScreenState extends State<TrackCurrentOrderScreen> {
             ),
             const SizedBox(height: 20),
 
-            Container(
-              height: 150,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Colors.black26),
-              ),
-              child: const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.map, size: 60, color: Colors.grey),
-                    SizedBox(height: 8),
-                    Text('Map Placeholder',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
-                  ],
+            if (currentOrder['status'] == 'Accepted' && currentOrder['mapLinks'] != null && currentOrder['mapLinks']['customer'] != null)
+              ElevatedButton.icon(
+                onPressed: () async {
+                  final Uri mapUrl = Uri.parse(currentOrder['mapLinks']['customer']);
+                  if (await canLaunchUrl(mapUrl)) {
+                    await launchUrl(mapUrl);
+                  }
+                },
+                icon: const Icon(Icons.map),
+                label: const Text('View on Google Maps'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
               ),
-            ),
 
             const SizedBox(height: 15),
 
-            if (currentOrder!['status'] == 'Accepted' && riderDetails != null)
+            if (currentOrder['status'] == 'Accepted' && riderDetails != null)
               ListTile(
                 leading: const Icon(Icons.person, color: Colors.blue),
                 title: Text('Rider: ${riderDetails!['fullName'] ?? 'N/A'}'),
                 subtitle: Text('Phone: ${riderDetails!['phone'] ?? '--'}\nVehicle: ${riderDetails!['vehicleNumber'] ?? '--'}'),
                 trailing: IconButton(
                   icon: const Icon(Icons.phone, color: Colors.green),
-                  onPressed: () => _makePhoneCall("+919500381132"),
-
-
-
-
+                  onPressed: () => _makePhoneCall(riderDetails!['phone']),
                 ),
-
-
               ),
 
             const Spacer(),
@@ -230,21 +163,6 @@ class _TrackCurrentOrderScreenState extends State<TrackCurrentOrderScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
                     ),
                     child: const Text('Contact Support', style: TextStyle(color: Colors.white)),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: (currentOrder!['status'] == 'New' || currentOrder!['status'] == 'Confirmed')
-                        ? _cancelOrder
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: (currentOrder!['status'] == 'New' || currentOrder!['status'] == 'Confirmed')
-                          ? Colors.red
-                          : Colors.grey,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
-                    ),
-                    child: const Text('Cancel Order', style: TextStyle(color: Colors.white)),
                   ),
                 ),
               ],

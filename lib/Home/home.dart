@@ -4,6 +4,7 @@ import 'package:allgoz/Favorite/favorite.dart';
 import 'package:allgoz/Home/Categories/category_list.dart';
 import 'package:allgoz/Orders/my_orders.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:location/location.dart' as loc;
@@ -80,7 +81,7 @@ class _HomePageState extends State<HomePage> {
     if (index == 1) {
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => CartScreen()));
     } else if (index == 2) {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => FavoritesScreen()));
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => MyOrdersScreen()));
     } else if (index == 3) {
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => AccountScreen()));
     }
@@ -305,9 +306,10 @@ class _HomePageState extends State<HomePage> {
           unselectedItemColor: Colors.grey,
           onTap: _onItemTapped,
           items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+            BottomNavigationBarItem(icon: Icon(Icons.shopping_bag), label: 'Home'),
+
             BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: 'Cart'),
-            BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'Favorites'),
+            BottomNavigationBarItem(icon: Icon(Icons.delivery_dining), label: 'My Order'),
             BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
           ],
         ),

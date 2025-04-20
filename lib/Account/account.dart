@@ -32,7 +32,7 @@ class _AccountScreenState extends State<AccountScreen> {
     } else if (index == 1) {
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const CartScreen()));
     } else if (index == 2) {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const FavoritesScreen()));
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MyOrdersScreen()));
     }
   }
   @override
@@ -44,13 +44,13 @@ class _AccountScreenState extends State<AccountScreen> {
   void _fetchUserInfo() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null && user.email != null) {
-      String emailKey = user.email!.replaceAll('.', '_').replaceAll('@', '_');
-      String userCustomerId = 'google_$emailKey';
+      final uid = user.uid;
 
       final doc = await FirebaseFirestore.instance
           .collection('customers')
-          .doc(userCustomerId)
+          .doc(uid)
           .get();
+
 
       if (doc.exists) {
         setState(() {
@@ -104,9 +104,9 @@ class _AccountScreenState extends State<AccountScreen> {
             _buildAccountOption(Icons.shopping_bag, 'My Orders', () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => MyOrdersScreen()));
             }, scaleFactor),
-            _buildAccountOption(Icons.local_shipping, 'Track Current Orders', () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => TrackCurrentOrderScreen()));
-            }, scaleFactor),
+            // _buildAccountOption(Icons.local_shipping, 'Track Current Orders', () {
+            //   Navigator.push(context, MaterialPageRoute(builder: (_) => TrackCurrentOrderScreen()));
+            // }, scaleFactor),
             SizedBox(height: 20 * scaleFactor),
             _buildSectionTitle('Account Settings', scaleFactor),
             _buildAccountOption(Icons.location_on, 'Manage Addresses', () {
@@ -115,9 +115,9 @@ class _AccountScreenState extends State<AccountScreen> {
             _buildAccountOption(Icons.payment, 'Payment Methods', () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentMethodsScreen()));
             }, scaleFactor),
-            _buildAccountOption(Icons.favorite, 'Wishlist/Favorites', () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => FavoritesScreen()));
-            }, scaleFactor),
+            // _buildAccountOption(Icons.favorite, 'Wishlist/Favorites', () {
+            //   Navigator.push(context, MaterialPageRoute(builder: (_) => FavoritesScreen()));
+            // }, scaleFactor),
             SizedBox(height: 20 * scaleFactor),
             _buildSectionTitle('Help & Support', scaleFactor),
             _buildAccountOption(Icons.help_outline, 'FAQ / Help Center', () {}, scaleFactor),
@@ -145,10 +145,11 @@ class _AccountScreenState extends State<AccountScreen> {
           unselectedItemColor: Colors.grey,
           onTap: _onItemTapped,
           items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+            BottomNavigationBarItem(icon: Icon(Icons.shopping_bag), label: 'Home'),
+
             BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: 'Cart'),
-            BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'Favorites'),
-            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Account'),
+            BottomNavigationBarItem(icon: Icon(Icons.delivery_dining), label: 'My Order'),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
           ],
         ),
       ),

@@ -165,7 +165,7 @@ class _EnterNamePageState extends State<EnterNamePage> {
                 ElevatedButton(
                   onPressed: _isLoading ? null : () => _submitName(context),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1C85EA).withOpacity(0.9),
+                    backgroundColor: const Color(0xFF4CAF50).withOpacity(0.9),
                     minimumSize: const Size(312, 50),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     shadowColor: Colors.black.withOpacity(0.3),

@@ -220,13 +220,14 @@ class _CartScreenState extends State<CartScreen> {
           unselectedItemColor: Colors.grey,
           onTap: (index) {
             if (index == 0) Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomePage()));
-            if (index == 2) Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const FavoritesScreen()));
+            if (index == 2) Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MyOrdersScreen()));
             if (index == 3) Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => AccountScreen()));
           },
           items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+            BottomNavigationBarItem(icon: Icon(Icons.shopping_bag), label: 'Home'),
+
             BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: 'Cart'),
-            BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'Favorites'),
+            BottomNavigationBarItem(icon: Icon(Icons.delivery_dining), label: 'My Order'),
             BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
           ],
         ),

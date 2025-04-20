@@ -16,11 +16,19 @@ class CategoryScreen extends StatefulWidget {
 
 class _CategoryScreenState extends State<CategoryScreen> {
   bool _isLoading = true;
+  final ScrollController _scrollController = ScrollController();
+  bool _isFetchingMore = false;
+  bool _hasMoreProducts = true;
+  DocumentSnapshot? _lastDocument;
 
   List<Map<String, dynamic>> categories = [];
   List<Map<String, dynamic>> products = [];
   String selectedType = ""; // Track selected type
   String? userCustomerId;
+  DocumentSnapshot? lastVisibleProduct;
+  bool isLoadingMore = false;
+  bool hasMore = true;
+  final int perPage = 10;
 
   Map<String, int> cartItems = {}; // ✅ Store productId and quantity
 
@@ -29,9 +37,64 @@ class _CategoryScreenState extends State<CategoryScreen> {
     super.initState();
     _fetchUserCustomerId();
     _fetchCart();
-    _fetchTypes(); // Fetch left sidebar content
-    // ✅ Start listening to Firestore cart updates
+    _fetchTypes();
 
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 300) {
+        if (!_isFetchingMore && _hasMoreProducts) {
+          _fetchMoreProducts();
+        }
+      }
+    });
+  }
+
+  Future<void> _fetchMoreProducts() async {
+    if (_lastDocument == null || !_hasMoreProducts) return;
+
+    setState(() {
+      _isFetchingMore = true;
+    });
+
+    try {
+      Query query = FirebaseFirestore.instance
+          .collectionGroup('products')
+          .where('category', isEqualTo: widget.categoryName)
+          .where('available', isEqualTo: true)
+          .where('type', isEqualTo: selectedType)
+          .startAfterDocument(_lastDocument!)
+          .limit(10);
+
+      final querySnapshot = await query.get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        _lastDocument = querySnapshot.docs.last;
+      } else {
+        _hasMoreProducts = false;
+      }
+
+      setState(() {
+        products.addAll(querySnapshot.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return {
+            'id': doc.id,
+            'name': data['name'],
+            'price': data['price'],
+            'imageURL': data['imageURL'],
+            'discount': data['discount'] ?? 0,
+            'quantity': int.tryParse(data['quantity'].toString()) ?? 1,
+            'unit': data['unit'] ?? "N/A",
+            'grams': int.tryParse(data['grams'].toString()) ?? 0,
+            'cartQuantity': cartItems[doc.id] ?? 0,
+          };
+        }));
+        _isFetchingMore = false;
+      });
+    } catch (e) {
+      print("❌ Error fetching more products: $e");
+      setState(() {
+        _isFetchingMore = false;
+      });
+    }
   }
 
   void _fetchUserCustomerId() {
@@ -136,23 +199,31 @@ class _CategoryScreenState extends State<CategoryScreen> {
   Future<void> _fetchProducts() async {
     setState(() {
       _isLoading = true;
+      products = []; // Reset for new category/type
+      _lastDocument = null;
+      _hasMoreProducts = true;
     });
 
     try {
-      QuerySnapshot productSnapshot = await FirebaseFirestore.instance
+      Query query = FirebaseFirestore.instance
           .collectionGroup('products')
           .where('category', isEqualTo: widget.categoryName)
           .where('available', isEqualTo: true)
-          .get();
+          .where('type', isEqualTo: selectedType)
+          .limit(10);
 
-      List<Map<String, dynamic>> fetchedProducts = [];
+      final querySnapshot = await query.get();
 
-      for (var doc in productSnapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>?;
+      if (querySnapshot.docs.isNotEmpty) {
+        _lastDocument = querySnapshot.docs.last;
+      } else {
+        _hasMoreProducts = false;
+      }
 
-        if (data == null || !data.containsKey('type')) continue;
-        if (data['type'] == selectedType) {
-          fetchedProducts.add({
+      setState(() {
+        products = querySnapshot.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return {
             'id': doc.id,
             'name': data['name'],
             'price': data['price'],
@@ -162,12 +233,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
             'unit': data['unit'] ?? "N/A",
             'grams': int.tryParse(data['grams'].toString()) ?? 0,
             'cartQuantity': cartItems[doc.id] ?? 0,
-          });
-        }
-      }
-
-      setState(() {
-        products = fetchedProducts;
+          };
+        }).toList();
         _isLoading = false;
       });
     } catch (e) {
@@ -247,6 +314,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
           Expanded(
             child: _isLoading
                 ? GridView.builder(
+              controller: _scrollController,
               padding: EdgeInsets.all(8 * scaleFactor),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: screenWidth < 500 ? 2 : 3,
@@ -254,18 +322,19 @@ class _CategoryScreenState extends State<CategoryScreen> {
                 mainAxisSpacing: 10 * scaleFactor,
                 childAspectRatio: 0.46,
               ),
-              itemCount: 6, // Number of shimmer cards
+              itemCount: 6,
               itemBuilder: (context, index) => _buildShimmerCard(scaleFactor),
             )
                 : products.isEmpty
                 ? Center(child: Text("No products found"))
                 : GridView.builder(
+              controller: _scrollController,
               padding: EdgeInsets.all(8 * scaleFactor),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: screenWidth < 500 ? 2 : 3,
                 crossAxisSpacing: 10 * scaleFactor,
                 mainAxisSpacing: 10 * scaleFactor,
-                childAspectRatio: 0.46, // Adjusted to fix overflow
+                childAspectRatio: 0.46,
               ),
               itemCount: products.length,
               itemBuilder: (context, index) {
@@ -315,7 +384,10 @@ class _CategoryScreenState extends State<CategoryScreen> {
                                   ),
                                   child: Text(
                                     "${product['discount']}% Off",
-                                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12 * scaleFactor),
+                                    style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12 * scaleFactor),
                                   ),
                                 ),
                               ),
@@ -336,7 +408,10 @@ class _CategoryScreenState extends State<CategoryScreen> {
                         /// Quantity
                         Text(
                           "${product['quantity']} ${product['unit']}",
-                          style: TextStyle(fontSize: 14 * scaleFactor, color: Colors.grey, fontWeight: FontWeight.bold,),
+                          style: TextStyle(
+                              fontSize: 14 * scaleFactor,
+                              color: Colors.grey,
+                              fontWeight: FontWeight.bold),
                         ),
                         SizedBox(height: 4 * scaleFactor),
 
@@ -346,7 +421,10 @@ class _CategoryScreenState extends State<CategoryScreen> {
                           children: [
                             Text(
                               "₹${product['price']}",
-                              style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 14 * scaleFactor),
+                              style: TextStyle(
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14 * scaleFactor),
                             ),
                             SizedBox(width: 5),
                             if (product['originalPrice'] != null)
@@ -363,23 +441,28 @@ class _CategoryScreenState extends State<CategoryScreen> {
                         ),
                         SizedBox(height: 6 * scaleFactor),
 
-                        /// Add to Cart
+                        /// Add to Cart or Counter
                         cartQuantity == 0
                             ? ElevatedButton(
                           onPressed: () {
-                            int baseGrams = (product['unit'] == "Kg") ? 1000 : int.tryParse(product['quantity'].toString()) ?? 100;
+                            int baseGrams = (product['unit'] == "Kg")
+                                ? 1000
+                                : int.tryParse(product['quantity'].toString()) ?? 100;
                             _updateCart(productId, product, 1, baseGrams);
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(9),
-                              side: const BorderSide(color: Colors.green,),
+                              side: const BorderSide(color: Colors.green),
                             ),
                             minimumSize: Size(screenWidth * 0.4, screenHeight * 0.049),
                           ),
                           child: Text("ADD",
-                              style: TextStyle(color: Colors.green, fontSize: 15 * scaleFactor, fontWeight: FontWeight.bold)),
+                              style: TextStyle(
+                                  color: Colors.green,
+                                  fontSize: 15 * scaleFactor,
+                                  fontWeight: FontWeight.bold)),
                         )
                             : Container(
                           height: screenHeight * 0.049,
@@ -389,7 +472,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
                             borderRadius: BorderRadius.circular(9),
                             border: Border.all(color: Colors.green, width: 2),
                           ),
-                          padding: EdgeInsets.symmetric(horizontal: 4 * scaleFactor), // optional
+                          padding: EdgeInsets.symmetric(horizontal: 4 * scaleFactor),
                           child: FittedBox(
                             fit: BoxFit.scaleDown,
                             child: Row(
@@ -430,8 +513,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
                               ],
                             ),
                           ),
-                        )
-
+                        ),
                       ],
                     ),
                   ),
@@ -441,6 +523,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
           ),
         ],
       ),
+
       bottomNavigationBar: cartItems.isNotEmpty
           ? SafeArea(
         child: Container(

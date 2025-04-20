@@ -292,14 +292,17 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
   }
 
   void _checkDeliveryEligibility() {
-    final now = DateTime.now().toUtc().add(Duration(hours: 5, minutes: 30)); // IST
+    final now = DateTime.now().toUtc().add(const Duration(hours: 5, minutes: 30)); // Convert to IST
     final nineAM = DateTime(now.year, now.month, now.day, 9);
+
+    final isPast9AM = now.isAfter(nineAM);
+
     setState(() {
-      isAfter9AM = now.isAfter(nineAM);
-      if (isAfter9AM) {
-        selectedDeliveryDay = 'Tomorrow'; // Force set
-      }
+      isAfter9AM = isPast9AM;
+      selectedDeliveryDay = isPast9AM ? 'Tomorrow' : 'Today';
     });
+
+    _updateDeliveryDetails(); // ✅ Update Firestore with the auto-selected value
   }
 
   void _fetchUserDetails() async {

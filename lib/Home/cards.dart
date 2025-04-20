@@ -90,7 +90,7 @@ class CardsPage extends StatelessWidget {
         items: [
           BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.location_on_outlined), label: 'Location'),
-          BottomNavigationBarItem(icon: Icon(Icons.favorite_border), label: 'Favorites'),
+          BottomNavigationBarItem(icon: Icon(Icons.delivery_dining), label: 'Favorites'),
           BottomNavigationBarItem(icon: Icon(Icons.camera_alt_outlined), label: 'Camera'),
           BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Account'),
         ],
