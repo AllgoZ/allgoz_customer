@@ -27,6 +27,8 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
   late TextEditingController _locationController;
 
   String _addressType = 'Home';
+  bool _isFetchingLocation = false;
+  bool _isSavingAddress = false;
 
   @override
   void initState() {
@@ -79,42 +81,53 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
     }
   }
 
-  Future<void> _getCurrentLocation() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      await Geolocator.openLocationSettings();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enable location services.")),
-      );
-      return;
-    }
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Location permission denied.")),
-        );
+  void _getCurrentLocation() async {
+    setState(() => _isFetchingLocation = true);
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        await Geolocator.openLocationSettings();
         return;
       }
-    }
 
-    if (permission == LocationPermission.deniedForever) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Location permissions are permanently denied.")),
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          await Geolocator.openAppSettings();
+          return;
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        await Geolocator.openAppSettings();
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
       );
-      return;
-    }
 
-    final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-    setState(() {
-      _locationController.text = "Latitude: ${position.latitude}, Longitude: ${position.longitude}";
-    });
+      setState(() {
+        _locationController.text =
+        "Latitude: ${position.latitude}, Longitude: ${position.longitude}";
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Location fetched successfully!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to fetch location. Enable GPS!')),
+      );
+    } finally {
+      setState(() => _isFetchingLocation = false);
+    }
   }
 
-  void _saveAddress() {
+  void _saveAddress() async {
     if (_formKey.currentState!.validate()) {
+      setState(() => _isSavingAddress = true);
+
       final updatedAddress = {
         "name": _nameController.text.trim(),
         "phone": _phoneController.text.trim(),
@@ -128,9 +141,17 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
         "location": _locationController.text.trim(),
         "type": _addressType,
       };
-      Navigator.pop(context, updatedAddress);
+
+      await Future.delayed(Duration(seconds: 1)); // Optional fake delay
+
+      if (mounted) {
+        Navigator.pop(context, updatedAddress);
+      }
+
+      setState(() => _isSavingAddress = false);
     }
   }
+
 
   @override
   void dispose() {
@@ -165,25 +186,32 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
             children: [
               _buildTextField("Full Name", _nameController, scaleFactor),
               _buildTextField("Phone Number", _phoneController, scaleFactor, keyboardType: TextInputType.phone),
-              _buildTextField("Alternate Phone", _altPhoneController, scaleFactor, keyboardType: TextInputType.phone),
+              _buildTextField("Alternate Phone", _altPhoneController, scaleFactor, keyboardType: TextInputType.phone,optional: true),
               _buildTextField("House / Flat No", _houseController, scaleFactor),
               _buildTextField("Street & Locality", _streetController, scaleFactor),
-              _buildTextField("Landmark (Optional)", _landmarkController, scaleFactor),
+              _buildTextField("Landmark (Optional)", _landmarkController, scaleFactor,optional: true),
               _buildTextField("City", _cityController, scaleFactor),
-              _buildTextField("State", _stateController, scaleFactor),
-              _buildTextField("Pincode", _pincodeController, scaleFactor, keyboardType: TextInputType.number),
+              _buildTextField("State", _stateController, scaleFactor,optional: true),
+              _buildTextField("Pincode", _pincodeController, scaleFactor, keyboardType: TextInputType.number,optional: true),
               _buildTextField("Current Location", _locationController, scaleFactor, readOnly: true),
 
               SizedBox(height: 10 * scaleFactor),
 
               ElevatedButton(
-                onPressed: _getCurrentLocation,
+                onPressed: _isFetchingLocation ? null : _getCurrentLocation,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
                   padding: EdgeInsets.symmetric(vertical: 14 * scaleFactor),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8 * scaleFactor)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8 * scaleFactor)),
                 ),
-                child: Text("Get Current Location", style: TextStyle(fontSize: 16 * scaleFactor, color: Colors.white)),
+                child: _isFetchingLocation
+                    ? SizedBox(
+                    width: 22 * scaleFactor,
+                    height: 22 * scaleFactor,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Text("Get Current Location",
+                    style: TextStyle(fontSize: 16 * scaleFactor, color: Colors.white)),
               ),
 
               SizedBox(height: 10 * scaleFactor),
@@ -204,15 +232,23 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
 
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _saveAddress,
+                child:ElevatedButton(
+                  onPressed: _isSavingAddress ? null : _saveAddress,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     padding: EdgeInsets.symmetric(vertical: 14 * scaleFactor),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9 * scaleFactor)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(9 * scaleFactor)),
                   ),
-                  child: Text("Save Address", style: TextStyle(fontSize: 18 * scaleFactor, color: Colors.white)),
+                  child: _isSavingAddress
+                      ? SizedBox(
+                      width: 22 * scaleFactor,
+                      height: 22 * scaleFactor,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : Text("Save Address",
+                      style: TextStyle(fontSize: 18 * scaleFactor, color: Colors.white)),
                 ),
+
               ),
             ],
           ),
@@ -221,21 +257,30 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, double scaleFactor,
-      {TextInputType keyboardType = TextInputType.text, bool readOnly = false}) {
+  Widget _buildTextField(String label, TextEditingController controller,
+      double scaleFactor,
+      {TextInputType keyboardType = TextInputType
+          .text, bool readOnly = false, bool optional = false}) {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 8.0 * scaleFactor),
       child: TextFormField(
         controller: controller,
         keyboardType: keyboardType,
         readOnly: readOnly,
-        validator: (value) => (value == null || value.isEmpty) ? 'Please enter $label' : null,
+        validator: (value) {
+          if (!readOnly && !optional && (value == null || value.isEmpty)) {
+            return 'Please enter $label';
+          }
+          return null;
+        },
         style: TextStyle(fontSize: 16 * scaleFactor),
         decoration: InputDecoration(
           labelText: label,
           labelStyle: TextStyle(fontSize: 14 * scaleFactor),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8 * scaleFactor)),
-          contentPadding: EdgeInsets.symmetric(horizontal: 12 * scaleFactor, vertical: 10 * scaleFactor),
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8 * scaleFactor)),
+          contentPadding: EdgeInsets.symmetric(
+              horizontal: 12 * scaleFactor, vertical: 10 * scaleFactor),
         ),
       ),
     );

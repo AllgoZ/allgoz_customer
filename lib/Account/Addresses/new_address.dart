@@ -21,11 +21,14 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
   final TextEditingController _stateController = TextEditingController();
   final TextEditingController _pincodeController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
+  bool _isFetchingLocation = false;
+  bool _isSavingAddress = false;
 
   String _addressType = 'Home';
   bool _setAsDefault = false;
 
   void _getCurrentLocation() async {
+    setState(() => _isFetchingLocation = true);
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
@@ -62,12 +65,14 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to fetch location. Enable GPS!')),
       );
+    } finally {
+      setState(() => _isFetchingLocation = false);
     }
   }
 
+
   Future<void> _saveAddress() async {
     if (_formKey.currentState!.validate()) {
-      // 🔒 Ensure current location is selected
       if (_locationController.text.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Please fetch your current location before saving.")),
@@ -75,33 +80,36 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
         return;
       }
 
-      User? user = FirebaseAuth.instance.currentUser;
-      if (user == null || user.email == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("User not logged in!")),
-        );
-        return;
-      }
+      if (_isSavingAddress) return; // prevent double click
 
-      final emailKey = user.email!.replaceAll('.', '_').replaceAll('@', '_');
-      String userCustomerId = 'google_$emailKey';
-
-      Map<String, dynamic> addressData = {
-        "name": _nameController.text.trim(),
-        "phone": _phoneController.text.trim(),
-        "altPhone": _altPhoneController.text.trim(),
-        "house": _houseController.text.trim(),
-        "street": _streetController.text.trim(),
-        "landmark": _landmarkController.text.trim(),
-        "city": _cityController.text.trim(),
-        "state": _stateController.text.trim(),
-        "pincode": _pincodeController.text.trim(),
-        "location": _locationController.text.trim(),
-        "type": _addressType,
-        "isDefault": _setAsDefault,
-      };
-
+      setState(() => _isSavingAddress = true);
       try {
+        User? user = FirebaseAuth.instance.currentUser;
+        if (user == null || user.email == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("User not logged in!")),
+          );
+          return;
+        }
+
+        final emailKey = user.email!.replaceAll('.', '_').replaceAll('@', '_');
+        String userCustomerId = 'google_$emailKey';
+
+        Map<String, dynamic> addressData = {
+          "name": _nameController.text.trim(),
+          "phone": _phoneController.text.trim(),
+          "altPhone": _altPhoneController.text.trim(),
+          "house": _houseController.text.trim(),
+          "street": _streetController.text.trim(),
+          "landmark": _landmarkController.text.trim(),
+          "city": _cityController.text.trim(),
+          "state": _stateController.text.trim(),
+          "pincode": _pincodeController.text.trim(),
+          "location": _locationController.text.trim(),
+          "type": _addressType,
+          "isDefault": _setAsDefault,
+        };
+
         DocumentReference newAddressRef = FirebaseFirestore.instance
             .collection('customers')
             .doc(userCustomerId)
@@ -109,6 +117,7 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
             .doc();
 
         await newAddressRef.set(addressData);
+
         if (_setAsDefault) {
           await FirebaseFirestore.instance
               .collection('customers')
@@ -125,6 +134,8 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error saving address: $e")),
         );
+      } finally {
+        setState(() => _isSavingAddress = false);
       }
     }
   }
@@ -177,16 +188,22 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
               SizedBox(height: 8 * scaleFactor),
 
               ElevatedButton(
-                onPressed: _getCurrentLocation,
+                onPressed: _isFetchingLocation ? null : _getCurrentLocation,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
                   padding: EdgeInsets.symmetric(vertical: 14 * scaleFactor),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8 * scaleFactor)),
                 ),
-                child: Text("Get Current Location", style: TextStyle(
-                    fontSize: 16 * scaleFactor, color: Colors.white)),
+                child: _isFetchingLocation
+                    ? SizedBox(
+                    width: 22 * scaleFactor,
+                    height: 22 * scaleFactor,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Text("Get Current Location",
+                    style: TextStyle(fontSize: 16 * scaleFactor, color: Colors.white)),
               ),
+
 
               SizedBox(height: 10 * scaleFactor),
 
@@ -220,17 +237,23 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
 
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _saveAddress,
+                child:ElevatedButton(
+                  onPressed: _isSavingAddress ? null : _saveAddress,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     padding: EdgeInsets.symmetric(vertical: 14 * scaleFactor),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(9 * scaleFactor)),
                   ),
-                  child: Text("Save Address", style: TextStyle(
-                      fontSize: 18 * scaleFactor, color: Colors.white)),
+                  child: _isSavingAddress
+                      ? SizedBox(
+                      width: 22 * scaleFactor,
+                      height: 22 * scaleFactor,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : Text("Save Address",
+                      style: TextStyle(fontSize: 18 * scaleFactor, color: Colors.white)),
                 ),
+
               ),
             ],
           ),

@@ -1,6 +1,5 @@
 // 📦 Required packages:
-// Add these to pubspec.yaml
-// firebase_auth, google_sign_in, cloud_firestore
+// firebase_auth, google_sign_in, cloud_firestore, firebase_core
 
 import 'package:allgoz/Home/cards.dart';
 import 'package:allgoz/Home/storedetails.dart';
@@ -17,6 +16,7 @@ void main() async {
   await Firebase.initializeApp();
   runApp(const MyApp());
 }
+
 class BackgroundWidget extends StatelessWidget {
   const BackgroundWidget({super.key});
 
@@ -43,7 +43,11 @@ class MyApp extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return const LoginPage();
 
-    final doc = await FirebaseFirestore.instance.collection('customers').doc(user.uid).get();
+    final emailKey = user.email!.replaceAll('.', '_').replaceAll('@', '_');
+    final docId = 'google_$emailKey';
+
+    final doc = await FirebaseFirestore.instance.collection('customers').doc(docId).get();
+
     if (doc.exists) {
       return const HomePage();
     } else {
@@ -121,7 +125,11 @@ class _LoginPageState extends State<LoginPage> {
         return;
       }
 
-      final doc = await FirebaseFirestore.instance.collection('customers').doc(user.uid).get();
+      final emailKey = user.email!.replaceAll('.', '_').replaceAll('@', '_');
+      final docId = 'google_$emailKey';
+
+      final doc = await FirebaseFirestore.instance.collection('customers').doc(docId).get();
+
       setState(() => _isSigningIn = false);
 
       if (doc.exists) {

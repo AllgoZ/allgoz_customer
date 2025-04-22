@@ -65,7 +65,8 @@ class DeliveryService {
       customerLat,
       customerLng,
     );
-    if (sellerToCustomer > 20) {
+    if (sellerToCustomer > 20)  //change back to 20
+    {
       return {'success': false, 'message': 'Seller is too far from customer'};
     }
 
@@ -85,7 +86,8 @@ class DeliveryService {
           loc['latitude'], loc['longitude']
       );
 
-      if (sellerToPartner <= 20) {
+      if (sellerToPartner <= 20) //change back to 20
+      {
         final deliveryToCustomer = calculateDistance(
             loc['latitude'], loc['longitude'],
             customerLat, customerLng

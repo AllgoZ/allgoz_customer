@@ -10,6 +10,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:location/location.dart' as loc;
 import 'package:flutter/services.dart'; // For SystemNavigator.pop
 import 'dart:io'; // For Platform check
+import 'dart:async';
 
 
 class HomePage extends StatefulWidget {
@@ -25,16 +26,38 @@ class _HomePageState extends State<HomePage> {
   String searchQuery = '';
   loc.Location location = loc.Location();
   List<Map<String, dynamic>> categories = [];
+  late PageController _pageController;
+  Timer? _bannerTimer;
 
   int _selectedIndex = 0;
 
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(initialPage: 0);
     _checkLocationStatus();
     _fetchCategories();
     _fetchBanners();
+
+    _bannerTimer = Timer.periodic(const Duration(seconds: 10), (Timer timer) {
+      if (bannerImages.isNotEmpty && _pageController.hasClients) {
+        int nextPage = (_currentPage + 1) % bannerImages.length;
+        _pageController.animateToPage(
+          nextPage,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
   }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _bannerTimer?.cancel();
+    super.dispose();
+  }
+
 
   Future<void> _checkLocationStatus() async {
     bool serviceEnabled = await location.serviceEnabled();
@@ -247,10 +270,12 @@ class _HomePageState extends State<HomePage> {
                 ),
                 child: bannerImages.isEmpty
                     ? const Center(child: CircularProgressIndicator())
-                    : PageView.builder(
+                    :PageView.builder(
+                  controller: _pageController,
                   itemCount: bannerImages.length,
                   onPageChanged: (index) => setState(() => _currentPage = index),
                   itemBuilder: (context, index) {
+
                     return ClipRRect(
                       borderRadius: BorderRadius.circular(16),
                       child: Image.network(

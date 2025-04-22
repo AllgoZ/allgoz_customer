@@ -5,13 +5,15 @@ import 'package:allgoz/Account/Payment%20Method/payment_methods.dart';
 import 'package:allgoz/Account/Privacy%20Settings/privacy_settings.dart';
 import 'package:allgoz/Account/Profile/profile_edit.dart';
 import 'package:allgoz/Cart/cart.dart';
-import 'package:allgoz/Favorite/favorite.dart';
 import 'package:allgoz/Home/home.dart';
 import 'package:allgoz/Orders/my_orders.dart';
-import 'package:allgoz/Orders/track_order.dart';
+import 'package:allgoz/login.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
+// ✅ Import LoginPage
+import 'package:allgoz/main.dart';
 
 class AccountScreen extends StatefulWidget {
   @override
@@ -35,6 +37,7 @@ class _AccountScreenState extends State<AccountScreen> {
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MyOrdersScreen()));
     }
   }
+
   @override
   void initState() {
     super.initState();
@@ -50,7 +53,6 @@ class _AccountScreenState extends State<AccountScreen> {
           .collection('customers')
           .doc(uid)
           .get();
-
 
       if (doc.exists) {
         setState(() {
@@ -75,7 +77,7 @@ class _AccountScreenState extends State<AccountScreen> {
         backgroundColor: Colors.grey[200],
         appBar: AppBar(
           backgroundColor: const Color(0xFF4A90E2),
-          title: Text('Account', style: TextStyle(fontSize: 20 * scaleFactor,color:Colors.white,fontWeight: FontWeight.bold)),
+          title: Text('Account', style: TextStyle(fontSize: 20 * scaleFactor, color: Colors.white, fontWeight: FontWeight.bold)),
           centerTitle: true,
           automaticallyImplyLeading: false,
         ),
@@ -92,7 +94,6 @@ class _AccountScreenState extends State<AccountScreen> {
                 ),
                 title: Text(userName ?? 'Loading...', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18 * scaleFactor)),
                 subtitle: Text(userPhone ?? ''),
-
                 trailing: Icon(Icons.edit, color: Colors.blue),
                 onTap: () {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => EditProfileScreen()));
@@ -104,19 +105,13 @@ class _AccountScreenState extends State<AccountScreen> {
             _buildAccountOption(Icons.shopping_bag, 'My Orders', () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => MyOrdersScreen()));
             }, scaleFactor),
-            // _buildAccountOption(Icons.local_shipping, 'Track Current Orders', () {
-            //   Navigator.push(context, MaterialPageRoute(builder: (_) => TrackCurrentOrderScreen()));
-            // }, scaleFactor),
             SizedBox(height: 20 * scaleFactor),
             _buildSectionTitle('Account Settings', scaleFactor),
             _buildAccountOption(Icons.location_on, 'Manage Addresses', () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => ManageAddressesScreen()));
             }, scaleFactor),
-            _buildAccountOption(Icons.payment, 'Payment Methods', () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentMethodsScreen()));
-            }, scaleFactor),
-            // _buildAccountOption(Icons.favorite, 'Wishlist/Favorites', () {
-            //   Navigator.push(context, MaterialPageRoute(builder: (_) => FavoritesScreen()));
+            // _buildAccountOption(Icons.payment, 'Payment Methods', () {
+            //   Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentMethodsScreen()));
             // }, scaleFactor),
             SizedBox(height: 20 * scaleFactor),
             _buildSectionTitle('Help & Support', scaleFactor),
@@ -134,8 +129,15 @@ class _AccountScreenState extends State<AccountScreen> {
             }, scaleFactor),
             _buildAccountOption(Icons.language, 'Language', () {}, scaleFactor),
             _buildAccountOption(Icons.dark_mode, 'Dark Mode', () {}, scaleFactor),
-            _buildAccountOption(Icons.logout, 'Logout', () {
-              Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomePage()));
+
+            // ✅ LOGOUT BUTTON
+            _buildAccountOption(Icons.logout, 'Logout', () async {
+              await FirebaseAuth.instance.signOut();
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginPage()),
+                    (route) => false,
+              );
             }, scaleFactor, isLogout: true),
           ],
         ),
@@ -146,7 +148,6 @@ class _AccountScreenState extends State<AccountScreen> {
           onTap: _onItemTapped,
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.shopping_bag), label: 'Home'),
-
             BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: 'Cart'),
             BottomNavigationBarItem(icon: Icon(Icons.delivery_dining), label: 'My Order'),
             BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),

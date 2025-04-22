@@ -17,10 +17,6 @@ class CheckoutScreen extends StatefulWidget {
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
   String selectedPaymentMethod = 'Cash on Delivery';
-  double discount = 0;
-  double deliveryCharge = 0;
-  double packagingFee = 0;
-
   String? userCustomerId;
   List<Map<String, dynamic>> cartItems = [];
 
@@ -28,7 +24,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void initState() {
     super.initState();
     _fetchUserCustomerId();
-    _fetchPricingSettings();
   }
 
   void _fetchUserCustomerId() {
@@ -37,24 +32,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       setState(() {
         userCustomerId = 'google_${user.email!.replaceAll('.', '_').replaceAll('@', '_')}';
       });
-    }
-  }
-
-  void _fetchPricingSettings() async {
-    final doc = await FirebaseFirestore.instance
-        .collection('pricingSettings')
-        .doc('values')
-        .get();
-
-    if (doc.exists) {
-      final data = doc.data();
-      if (data != null) {
-        setState(() {
-          discount = (doc.data()?['discount'] ?? 0).toDouble();
-          deliveryCharge = double.tryParse(data['deliveryCharge'].toString()) ?? 0;
-          packagingFee = double.tryParse(data['packagingFee'].toString()) ?? 0;
-        });
-      }
     }
   }
 
@@ -74,146 +51,172 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF4A90E2),
         title: Text('Checkout',
-            style: TextStyle(fontSize: 24 * scaleFactor,color: Colors.white, fontWeight: FontWeight.bold)),
+            style: TextStyle(fontSize: 24 * scaleFactor, color: Colors.white, fontWeight: FontWeight.bold)),
         centerTitle: true,
-
       ),
       body: Padding(
         padding: EdgeInsets.all(16.0 * scaleFactor),
-        child: StreamBuilder<QuerySnapshot>(
-          stream: userCustomerId != null
-              ? FirebaseFirestore.instance
-              .collection('customers')
-              .doc(userCustomerId)
-              .collection('cart')
-              .snapshots()
-              : null,
-          builder: (context, snapshot) {
-            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-              return Center(
-                  child: Text("Your cart is empty",
-                      style: TextStyle(fontSize: 18 * scaleFactor)));
+        child: StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance.collection('pricingSettings').doc('values').snapshots(),
+          builder: (context, pricingSnapshot) {
+            if (!pricingSnapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
             }
 
-            cartItems = snapshot.data!.docs.map((doc) {
-              return {
-                'id': doc.id,
-                'name': doc['name'],
-                'imageURL': doc['imageURL'],
-                'price': doc['price'],
-                'quantity': doc['quantity'],
-                'unit': doc['unit'],
-                'grams': doc['grams'] ?? 0,
-              };
-            }).toList();
+            final pricingData = pricingSnapshot.data!.data() as Map<String, dynamic>? ?? {};
+            final discount = double.tryParse(pricingData['discount'].toString()) ?? 0;
+            final deliveryCharge = double.tryParse(pricingData['deliveryCharge'].toString()) ?? 0;
+            final packagingFee = double.tryParse(pricingData['packagingFee'].toString()) ?? 0;
 
-            double totalAmount = calculateTotalAmount(cartItems);
-            double finalAmount = totalAmount - discount + deliveryCharge + packagingFee;
+            return StreamBuilder<QuerySnapshot>(
+              stream: userCustomerId != null
+                  ? FirebaseFirestore.instance
+                  .collection('customers')
+                  .doc(userCustomerId)
+                  .collection('cart')
+                  .snapshots()
+                  : null,
+              builder: (context, cartSnapshot) {
+                if (!cartSnapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: ListView(
-                    children: [
-                      Card(
-                        elevation: 4,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12 * scaleFactor)),
-                        child: Padding(
-                          padding: EdgeInsets.all(8.0 * scaleFactor),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Order Summary',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 22 * scaleFactor)),
-                              ...cartItems.map((item) => ListTile(
-                                leading: Image.network(
-                                  item['imageURL'],
-                                  width: 40 * scaleFactor,
-                                  height: 40 * scaleFactor,
-                                  fit: BoxFit.cover,
-                                ),
-                                title: Text(item['name'],
-                                    style: TextStyle(
-                                        fontSize: 18 * scaleFactor,
-                                        fontWeight: FontWeight.w500)),
-                                subtitle: Text(
-                                    "${item['grams']}g x ${item['quantity']}",
-                                    style: TextStyle(fontSize: 16 * scaleFactor)),
-                                trailing: Text(
-                                    '₹${item['price'] * item['quantity']}',
-                                    style: TextStyle(
-                                        fontSize: 18 * scaleFactor,
-                                        fontWeight: FontWeight.bold)),
-                              )),
-                            ],
+                if (cartSnapshot.data!.docs.isEmpty) {
+                  return Center(
+                      child: Text("Your cart is empty",
+                          style: TextStyle(fontSize: 18 * scaleFactor)));
+                }
+
+                cartItems = cartSnapshot.data!.docs.map((doc) {
+                  return {
+                    'id': doc.id,
+                    'name': doc['name'],
+                    'imageURL': doc['imageURL'],
+                    'price': doc['price'],
+                    'quantity': doc['quantity'],
+                    'unit': doc['unit'],
+                    'grams': doc['grams'] ?? 0,
+                  };
+                }).toList();
+
+                double totalAmount = calculateTotalAmount(cartItems);
+                double finalAmount = totalAmount - discount + deliveryCharge + packagingFee;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: ListView(
+                        children: [
+                          Card(
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12 * scaleFactor)),
+                            child: Padding(
+                              padding: EdgeInsets.all(8.0 * scaleFactor),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Order Summary',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 22 * scaleFactor)),
+                                  ...cartItems.map((item) => ListTile(
+                                    leading: Image.network(
+                                      item['imageURL'],
+                                      width: 40 * scaleFactor,
+                                      height: 40 * scaleFactor,
+                                      fit: BoxFit.cover,
+                                    ),
+                                    title: Text(item['name'],
+                                        style: TextStyle(
+                                            fontSize: 18 * scaleFactor,
+                                            fontWeight: FontWeight.w500)),
+                                    subtitle: Text(
+                                        "${item['grams']}g x ${item['quantity']}",
+                                        style: TextStyle(fontSize: 16 * scaleFactor)),
+                                    trailing: Text(
+                                        '₹${item['price'] * item['quantity']}',
+                                        style: TextStyle(
+                                            fontSize: 18 * scaleFactor,
+                                            fontWeight: FontWeight.bold)),
+                                  )),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
+                          SizedBox(height: 10 * scaleFactor),
+                          Card(
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12 * scaleFactor)),
+                            child: Column(
+                              children: [
+                                ListTile(
+                                  title: Text('Subtotal',
+                                      style: TextStyle(fontSize: 18 * scaleFactor)),
+                                  trailing: Text('₹$totalAmount',
+                                      style: TextStyle(fontSize: 18 * scaleFactor)),
+                                ),
+                                ListTile(
+                                  title: Text('Discount',
+                                      style: TextStyle(fontSize: 18 * scaleFactor)),
+                                  trailing: Text('- ₹$discount',
+                                      style: TextStyle(fontSize: 18 * scaleFactor)),
+                                ),
+                                ListTile(
+                                  title: Text('Delivery Charges',
+                                      style: TextStyle(fontSize: 18 * scaleFactor)),
+                                  trailing: Text('₹$deliveryCharge',
+                                      style: TextStyle(fontSize: 18 * scaleFactor)),
+                                ),
+                                ListTile(
+                                  title: Text('Packaging Fee',
+                                      style: TextStyle(fontSize: 18 * scaleFactor)),
+                                  trailing: Text('₹$packagingFee',
+                                      style: TextStyle(fontSize: 18 * scaleFactor)),
+                                ),
+                                Divider(thickness: 1 * scaleFactor),
+                                ListTile(
+                                  title: Text('Total',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 20 * scaleFactor)),
+                                  trailing: Text('₹${finalAmount.toStringAsFixed(2)}',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 20 * scaleFactor)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      SizedBox(height: 10 * scaleFactor),
-                      Card(
-                        elevation: 4,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12 * scaleFactor)),
-                        child: Column(
-                          children: [
-                            ListTile(
-                              title: Text('Subtotal', style: TextStyle(fontSize: 18 * scaleFactor)),
-                              trailing: Text('₹$totalAmount', style: TextStyle(fontSize: 18 * scaleFactor)),
-                            ),
-                            ListTile(
-                              title: Text('Discount', style: TextStyle(fontSize: 18 * scaleFactor)),
-                              trailing: Text('- ₹$discount', style: TextStyle(fontSize: 18 * scaleFactor)),
-                            ),
-                            ListTile(
-                              title: Text('Delivery Charges', style: TextStyle(fontSize: 18 * scaleFactor)),
-                              trailing: Text('₹$deliveryCharge', style: TextStyle(fontSize: 18 * scaleFactor)),
-                            ),
-                            ListTile(
-                              title: Text('Packaging Fee', style: TextStyle(fontSize: 18 * scaleFactor)),
-                              trailing: Text('₹$packagingFee', style: TextStyle(fontSize: 18 * scaleFactor)),
-                            ),
-                            Divider(thickness: 1 * scaleFactor),
-
-                            ListTile(
-                              title: Text('Total',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20 * scaleFactor)),
-                              trailing: Text('₹$finalAmount',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20 * scaleFactor)),
-                            ),
-                          ],
-                        ),
-                      )
-                    ],
-                  ),
-                ),
-                SizedBox(height: 10 * scaleFactor),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) =>
-                              DeliveryScreen(cartItems: cartItems)),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(9 * scaleFactor),
                     ),
-                    minimumSize: Size(double.infinity, 50 * scaleFactor),
-                  ),
-                  child: Text('Confirm',
-                      style: TextStyle(
-                          fontSize: 20 * scaleFactor,
-                          // fontWeight: FontWeight.bold,
-                          color: Colors.white)),
-                ),
-              ],
+                    SizedBox(height: 10 * scaleFactor),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) =>
+                                  DeliveryScreen(cartItems: cartItems)),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(9 * scaleFactor),
+                        ),
+                        minimumSize: Size(double.infinity, 50 * scaleFactor),
+                      ),
+                      child: Text('Confirm',
+                          style: TextStyle(
+                              fontSize: 20 * scaleFactor, color: Colors.white)),
+                    ),
+                  ],
+                );
+              },
             );
           },
         ),
