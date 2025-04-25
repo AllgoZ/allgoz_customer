@@ -30,6 +30,14 @@
           }
         },
         {
+          "client_id": "797698017942-lvsiigu282n2hdelnj50ir36glcr09rm.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.allgoz.allgoz",
+            "certificate_hash": "444778bc76c9a965a86349a3c52b76dae57b0832"
+          }
+        },
+        {
           "client_id": "797698017942-jpuo8bugrov002bsv6m3mnn4531ctuo2.apps.googleusercontent.com",
           "client_type": 3
         }

@@ -479,6 +479,33 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
         'deliveryPartnerUid': result['deliveryPartnerUid'],
         'allDeliveryPartners': result['deliveryPartners'],
       });
+// 🔁 Update sales count for each product
+      final salesDocRef = FirebaseFirestore.instance
+          .collection('product_sales')
+          .doc('sales_count');
+
+      final salesSnapshot = await salesDocRef.get();
+      Map<String, dynamic> existingCounts = {};
+      if (salesSnapshot.exists) {
+        existingCounts = Map<String, dynamic>.from(salesSnapshot.data() ?? {});
+      }
+
+      Map<String, dynamic> updatedCounts = {};
+
+      for (var item in widget.cartItems) {
+        final String productId = item['id'];
+        final String productName = item['name'];
+        final int qty = item['quantity'] ?? 1;
+
+        final String combinedKey = "${productId}_$productName";
+
+        final int currentCount = int.tryParse(existingCounts[combinedKey]?.toString() ?? '0') ?? 0;
+        updatedCounts[combinedKey] = (currentCount + qty).toString(); // 🔁 stored as string
+      }
+
+      await salesDocRef.set(updatedCounts, SetOptions(merge: true));
+
+      await salesDocRef.set(updatedCounts, SetOptions(merge: true));
 
       final cartRef = FirebaseFirestore.instance
           .collection('customers')

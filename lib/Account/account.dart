@@ -11,6 +11,7 @@ import 'package:allgoz/login.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ✅ Import LoginPage
 import 'package:allgoz/main.dart';
@@ -45,20 +46,37 @@ class _AccountScreenState extends State<AccountScreen> {
   }
 
   void _fetchUserInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Load from cache immediately
+    setState(() {
+      userName = prefs.getString('cachedUserName') ?? 'Loading...';
+      userPhone = prefs.getString('cachedUserPhone') ?? 'Loading...';
+    });
+
+    // Then fetch from Firestore
     final user = FirebaseAuth.instance.currentUser;
     if (user != null && user.email != null) {
-      final uid = user.uid;
+      final emailKey = user.email!.replaceAll('.', '_').replaceAll('@', '_');
+      final customerId = 'google_$emailKey';
 
       final doc = await FirebaseFirestore.instance
           .collection('customers')
-          .doc(uid)
+          .doc(customerId)
           .get();
 
       if (doc.exists) {
+        final freshName = doc['name'] ?? 'No Name';
+        final freshPhone = doc.data().toString().contains('phone') ? doc['phone'] : 'N/A';
+
+
         setState(() {
-          userName = doc['name'] ?? 'No Name';
-          userPhone = doc['phone'] ?? 'N/A';
+          userName = freshName;
+          userPhone = freshPhone;
         });
+
+        prefs.setString('cachedUserName', freshName);
+        prefs.setString('cachedUserPhone', freshPhone);
       }
     }
   }
@@ -92,7 +110,7 @@ class _AccountScreenState extends State<AccountScreen> {
                   radius: 30 * scaleFactor,
                   backgroundImage: AssetImage('assets/profile.png'),
                 ),
-                title: Text(userName ?? 'Loading...', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18 * scaleFactor)),
+                title: Text(userName ?? '', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18 * scaleFactor)),
                 subtitle: Text(userPhone ?? ''),
                 trailing: Icon(Icons.edit, color: Colors.blue),
                 onTap: () {

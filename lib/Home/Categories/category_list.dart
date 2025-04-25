@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:allgoz/Cart/cart.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shimmer/shimmer.dart';
-
+import 'package:allgoz/services/sales_service.dart';
 
 class CategoryScreen extends StatefulWidget {
   final String categoryName; // ✅ Passed from home.dart
@@ -59,7 +59,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
       Query query = FirebaseFirestore.instance
           .collectionGroup('products')
           .where('category', isEqualTo: widget.categoryName)
-          .where('available', isEqualTo: true)
           .where('type', isEqualTo: selectedType)
           .startAfterDocument(_lastDocument!)
           .limit(10);
@@ -72,21 +71,35 @@ class _CategoryScreenState extends State<CategoryScreen> {
         _hasMoreProducts = false;
       }
 
+      List<Map<String, dynamic>> newProducts = querySnapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return {
+          'id': doc.id,
+          'name': data['name'],
+          'price': data['price'],
+          'imageURL': data['imageURL'],
+          'discount': data['discount'] ?? 0,
+          'quantity': int.tryParse(data['quantity'].toString()) ?? 1,
+          'unit': data['unit'] ?? "N/A",
+          'grams': int.tryParse(data['grams'].toString()) ?? 0,
+          'cartQuantity': cartItems[doc.id] ?? 0,
+          'available': data['available'] ?? true,
+        };
+      }).toList();
+
+      // ✅ Ensure sales count map is cached
+      _cachedSalesMap ??= await SalesService.fetchTopSellingCounts();
+
+      // ✅ Sort: Available first, then by sales count
+      newProducts.sort((a, b) {
+        if (a['available'] != b['available']) return a['available'] ? -1 : 1;
+        final salesA = _cachedSalesMap![a['id']] ?? 0;
+        final salesB = _cachedSalesMap![b['id']] ?? 0;
+        return salesB.compareTo(salesA);
+      });
+
       setState(() {
-        products.addAll(querySnapshot.docs.map((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          return {
-            'id': doc.id,
-            'name': data['name'],
-            'price': data['price'],
-            'imageURL': data['imageURL'],
-            'discount': data['discount'] ?? 0,
-            'quantity': int.tryParse(data['quantity'].toString()) ?? 1,
-            'unit': data['unit'] ?? "N/A",
-            'grams': int.tryParse(data['grams'].toString()) ?? 0,
-            'cartQuantity': cartItems[doc.id] ?? 0,
-          };
-        }));
+        products.addAll(newProducts);
         _isFetchingMore = false;
       });
     } catch (e) {
@@ -96,6 +109,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
       });
     }
   }
+
 
   void _fetchUserCustomerId() {
     User? user = FirebaseAuth.instance.currentUser;
@@ -196,21 +210,24 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
   /// ✅ Fetch Products based on Selected Type
   /// ✅ Fetch Products based on Selected Type
+
+  Map<String, int>? _cachedSalesMap; // 🔒 Cache to avoid reloading sales count
+
   Future<void> _fetchProducts() async {
     setState(() {
       _isLoading = true;
-      products = []; // Reset for new category/type
+      products = [];
       _lastDocument = null;
       _hasMoreProducts = true;
     });
 
     try {
+      // Step 1: Fetch products from Firestore (first batch)
       Query query = FirebaseFirestore.instance
           .collectionGroup('products')
           .where('category', isEqualTo: widget.categoryName)
-          .where('available', isEqualTo: true)
           .where('type', isEqualTo: selectedType)
-          .limit(10);
+          .limit(20); // Fast initial load
 
       final querySnapshot = await query.get();
 
@@ -220,22 +237,53 @@ class _CategoryScreenState extends State<CategoryScreen> {
         _hasMoreProducts = false;
       }
 
+      // Step 2: Parse Firestore products into list
+      final initialProducts = querySnapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return {
+          'id': doc.id,
+          'name': data['name'],
+          'price': data['price'],
+          'imageURL': data['imageURL'],
+          'discount': data['discount'] ?? 0,
+          'quantity': int.tryParse(data['quantity'].toString()) ?? 1,
+          'unit': data['unit'] ?? "N/A",
+          'grams': int.tryParse(data['grams'].toString()) ?? 0,
+          'cartQuantity': cartItems[doc.id] ?? 0,
+          'available': data['available'] ?? true,
+        };
+      }).toList();
+
+      // Step 3: Sort by availability first (show in-stock first)
+      initialProducts.sort((a, b) {
+        if (a['available'] == b['available']) return 0;
+        return a['available'] ? -1 : 1;
+      });
+
       setState(() {
-        products = querySnapshot.docs.map((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          return {
-            'id': doc.id,
-            'name': data['name'],
-            'price': data['price'],
-            'imageURL': data['imageURL'],
-            'discount': data['discount'] ?? 0,
-            'quantity': int.tryParse(data['quantity'].toString()) ?? 1,
-            'unit': data['unit'] ?? "N/A",
-            'grams': int.tryParse(data['grams'].toString()) ?? 0,
-            'cartQuantity': cartItems[doc.id] ?? 0,
-          };
-        }).toList();
+        products = initialProducts;
         _isLoading = false;
+      });
+
+      // Step 4: Fetch and cache sales count map (once)
+      if (_cachedSalesMap == null) {
+        _cachedSalesMap = await SalesService.fetchTopSellingCounts(); // From your product_sales/sales_count doc
+      }
+
+      // Step 5: Apply sales-based sorting
+      final reSorted = List<Map<String, dynamic>>.from(products);
+
+      reSorted.sort((a, b) {
+        if (a['available'] != b['available']) return a['available'] ? -1 : 1;
+
+        final salesA = _cachedSalesMap![a['id']] ?? 0;
+        final salesB = _cachedSalesMap![b['id']] ?? 0;
+
+        return salesB.compareTo(salesA); // More sold = higher
+      });
+
+      setState(() {
+        products = reSorted;
       });
     } catch (e) {
       print("❌ Error fetching products: $e");
@@ -244,9 +292,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
       });
     }
   }
-
-
-
 
 
 
@@ -346,182 +391,218 @@ class _CategoryScreenState extends State<CategoryScreen> {
                 final productId = product['id'];
                 final cartQuantity = cartItems[productId] ?? 0;
 
+                final isAvailable = product['available'] ?? true;
+
                 return GestureDetector(
-                  onTap: () => _showBottomSheet(context, product),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(15),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 6,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    padding: EdgeInsets.all(screenWidth * 0.025),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        /// Image with discount
-                        Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
-                              child: Image.network(
-                                product['imageURL'],
-                                height: screenHeight * 0.12,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                            if (product['discount'] > 0)
-                              Positioned(
-                                top: 5,
-                                left: 5,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    "${product['discount']}% Off",
-                                    style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12 * scaleFactor),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        SizedBox(height: 6 * scaleFactor),
-
-                        /// Product Name
-                        Text(
-                          product['name'],
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14 * scaleFactor),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        SizedBox(height: 4 * scaleFactor),
-
-                        /// Quantity
-                        Text(
-                          "${product['quantity']} ${product['unit']}",
-                          style: TextStyle(
-                              fontSize: 14 * scaleFactor,
-                              color: Colors.grey,
-                              fontWeight: FontWeight.bold),
-                        ),
-                        SizedBox(height: 4 * scaleFactor),
-
-                        /// Price
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              "₹${product['price']}",
-                              style: TextStyle(
-                                  color: Colors.green,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14 * scaleFactor),
-                            ),
-                            SizedBox(width: 5),
-                            if (product['originalPrice'] != null)
-                              Text(
-                                "₹${product['originalPrice']}",
-                                style: TextStyle(
-                                  decoration: TextDecoration.lineThrough,
-                                  color: Colors.grey,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12 * scaleFactor,
-                                ),
-                              ),
-                          ],
-                        ),
-                        SizedBox(height: 6 * scaleFactor),
-
-                        /// Add to Cart or Counter
-                        cartQuantity == 0
-                            ? ElevatedButton(
-                          onPressed: () {
-                            int baseGrams = (product['unit'] == "Kg")
-                                ? 1000
-                                : int.tryParse(product['quantity'].toString()) ?? 100;
-                            _updateCart(productId, product, 1, baseGrams);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(9),
-                              side: const BorderSide(color: Colors.green),
-                            ),
-                            minimumSize: Size(screenWidth * 0.4, screenHeight * 0.047),
-                          ),
-                          child: Text("ADD",
-                              style: TextStyle(
-                                  color: Colors.green,
-                                  fontSize: 15 * scaleFactor,
-                                  fontWeight: FontWeight.bold)),
-                        )
-                            : Container(
-                          height: screenHeight * 0.047,
-                          width: screenWidth * 0.38,
+                  onTap: isAvailable ? () => _showBottomSheet(context, product) : null,
+                  child: Stack(
+                    children: [
+                      Opacity(
+                        opacity: isAvailable ? 1.0 : 0.5,
+                        child: Container(
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(9),
-                            border: Border.all(color: Colors.green, width: 2),
+                            borderRadius: BorderRadius.circular(15),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black12,
+                                blurRadius: 6,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
                           ),
-                          padding: EdgeInsets.symmetric(horizontal: 4 * scaleFactor),
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.remove, color: Colors.green),
-                                  iconSize: 25 * scaleFactor,
-                                  onPressed: () {
-                                    int baseGrams = (product['unit'] == "Kg")
-                                        ? 1000
-                                        : int.tryParse(product['quantity'].toString()) ?? 100;
-                                    if (cartQuantity > 1) {
-                                      _updateCart(productId, product, cartQuantity - 1, baseGrams);
-                                    } else {
-                                      _removeFromCart(product);
-                                    }
-                                  },
+                          padding: EdgeInsets.all(screenWidth * 0.025),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              /// Image with discount
+                              Stack(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                                    child: Image.network(
+                                      product['imageURL'],
+                                      height: screenHeight * 0.12,
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                  if (product['discount'] > 0)
+                                    Positioned(
+                                      top: 5,
+                                      left: 5,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          "${product['discount']}% Off",
+                                          style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12 * scaleFactor),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              SizedBox(height: 6 * scaleFactor),
+
+                              /// Product Name
+                              Text(
+                                product['name'],
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14 * scaleFactor),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              SizedBox(height: 4 * scaleFactor),
+
+                              /// Quantity
+                              Text(
+                                "${product['quantity']} ${product['unit']}",
+                                style: TextStyle(
+                                    fontSize: 14 * scaleFactor,
+                                    color: Colors.grey,
+                                    fontWeight: FontWeight.bold),
+                              ),
+                              SizedBox(height: 4 * scaleFactor),
+
+                              /// Price
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    "₹${product['price']}",
+                                    style: TextStyle(
+                                        color: Colors.green,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14 * scaleFactor),
+                                  ),
+                                  SizedBox(width: 5),
+                                  if (product['originalPrice'] != null)
+                                    Text(
+                                      "₹${product['originalPrice']}",
+                                      style: TextStyle(
+                                        decoration: TextDecoration.lineThrough,
+                                        color: Colors.grey,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12 * scaleFactor,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              SizedBox(height: 6 * scaleFactor),
+
+                              /// Add to Cart or Counter
+                              isAvailable
+                                  ? cartQuantity == 0
+                                  ? ElevatedButton(
+                                onPressed: () {
+                                  int baseGrams = (product['unit'] == "Kg")
+                                      ? 1000
+                                      : int.tryParse(product['quantity'].toString()) ?? 100;
+                                  _updateCart(productId, product, 1, baseGrams);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(9),
+                                    side: const BorderSide(color: Colors.green),
+                                  ),
+                                  minimumSize: Size(screenWidth * 0.4, screenHeight * 0.047),
                                 ),
-                                Text(
-                                  "$cartQuantity",
-                                  style: TextStyle(
-                                    fontSize: 25 * scaleFactor,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.green,
+                                child: Text("ADD",
+                                    style: TextStyle(
+                                        color: Colors.green,
+                                        fontSize: 15 * scaleFactor,
+                                        fontWeight: FontWeight.bold)),
+                              )
+                                  : Container(
+                                height: screenHeight * 0.047,
+                                width: screenWidth * 0.38,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(9),
+                                  border: Border.all(color: Colors.green, width: 2),
+                                ),
+                                padding: EdgeInsets.symmetric(horizontal: 4 * scaleFactor),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.remove, color: Colors.green),
+                                        iconSize: 25 * scaleFactor,
+                                        onPressed: () {
+                                          int baseGrams = (product['unit'] == "Kg")
+                                              ? 1000
+                                              : int.tryParse(product['quantity'].toString()) ?? 100;
+                                          if (cartQuantity > 1) {
+                                            _updateCart(productId, product, cartQuantity - 1, baseGrams);
+                                          } else {
+                                            _removeFromCart(product);
+                                          }
+                                        },
+                                      ),
+                                      Text(
+                                        "$cartQuantity",
+                                        style: TextStyle(
+                                          fontSize: 25 * scaleFactor,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.green,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.add, color: Colors.green),
+                                        iconSize: 25 * scaleFactor,
+                                        onPressed: () {
+                                          int baseGrams = (product['unit'] == "Kg")
+                                              ? 1000
+                                              : int.tryParse(product['quantity'].toString()) ?? 100;
+                                          _updateCart(productId, product, cartQuantity + 1, baseGrams);
+                                        },
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                IconButton(
-                                  icon: const Icon(Icons.add, color: Colors.green),
-                                  iconSize: 25 * scaleFactor,
-                                  onPressed: () {
-                                    int baseGrams = (product['unit'] == "Kg")
-                                        ? 1000
-                                        : int.tryParse(product['quantity'].toString()) ?? 100;
-                                    _updateCart(productId, product, cartQuantity + 1, baseGrams);
-                                  },
+                              )
+                                  : const SizedBox(), // hide cart button for unavailable
+                            ],
+                          ),
+                        ),
+                      ),
+                      // 🎯 Ribbon for Out of Stock
+                      if (!isAvailable)
+                        Positioned(
+                          top: 10,
+                          left: -30,
+                          child: Transform.rotate(
+                            angle: -0.785398, // -45 degrees
+                            child: Container(
+                              width: 120,
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              color: Colors.grey,
+                              child: Center(
+                                child: Text(
+                                  "OUT OF STOCK",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 10 * scaleFactor,
+                                  ),
                                 ),
-                              ],
+                              ),
                             ),
                           ),
                         ),
-                      ],
-                    ),
+                    ],
                   ),
                 );
+
               },
             ),
           ),
