@@ -1,5 +1,6 @@
 import 'package:allgoz/Account/Addresses/edit_address.dart';
 import 'package:allgoz/Account/Addresses/new_address.dart';
+import 'package:allgoz/services/youtube_player_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -137,6 +138,18 @@ class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.video_collection_rounded, color: Colors.white),
+            onPressed: () {
+              showDialog(
+                context: context,
+                barrierColor: Colors.transparent,
+                builder: (_) => const YoutubePlayerOverlay(fieldName: 'address'),
+              );
+            },
+          ),
+        ],
       ),
       body: userCustomerId == null
           ? Center(child: CircularProgressIndicator())

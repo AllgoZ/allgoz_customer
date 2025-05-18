@@ -45,8 +45,12 @@ class _CartScreenState extends State<CartScreen> {
   void _updateCart(String productId, Map<String, dynamic> product, int newQuantity) async {
     if (userCustomerId == null) return;
 
-    int baseGrams = (product['unit'] == "Kg") ? 1000 : 1;
-    int grams = newQuantity * baseGrams;
+    // ✅ Get the base grams from the existing product entry
+    int currentQuantity = product['quantity'] ?? 1;
+    int currentGrams = product['grams'] ?? 0;
+    int gramsPerUnit = currentQuantity > 0 ? (currentGrams ~/ currentQuantity) : 0;
+
+    int updatedGrams = newQuantity * gramsPerUnit;
 
     if (newQuantity > 0) {
       await FirebaseFirestore.instance
@@ -58,7 +62,7 @@ class _CartScreenState extends State<CartScreen> {
         'name': product['name'],
         'price': product['price'],
         'quantity': newQuantity,
-        'grams': grams,
+        'grams': updatedGrams,
         'imageURL': product['imageURL'],
         'unit': product['unit'],
         'totalQuantity': newQuantity,

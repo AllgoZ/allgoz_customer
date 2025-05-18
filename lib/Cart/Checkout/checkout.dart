@@ -1,5 +1,6 @@
 import 'package:allgoz/Account/Addresses/manage_adress.dart';
 import 'package:allgoz/Home/home.dart';
+import 'package:allgoz/services/youtube_player_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -546,6 +547,10 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
+    final tomorrow = DateTime.now().add(const Duration(days: 1));
+    // final formattedTomorrow = "${_getWeekday(tomorrow.weekday)}, ${tomorrow.day} ${_getMonthName(tomorrow.month)}";
+    final formattedTomorrow = DateFormat('d/MM/yyyy').format(tomorrow);
+
     final scaleFactor = MediaQuery
         .of(context)
         .size
@@ -568,12 +573,19 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
             actions: [
               IconButton(
                 icon: const Icon(Icons.video_collection_rounded, color: Colors.white),
-                onPressed: () {},
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    barrierColor: Colors.transparent,
+                    builder: (_) => const YoutubePlayerOverlay(fieldName: 'deliveryscreen'),
+                  );
+                },
               ),
 
             ],
           ),
           body: Padding(
+
             padding: EdgeInsets.all(16.0 * scaleFactor),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -651,8 +663,9 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                "🕗 Your order will be delivered tomorrow morning at 7 - 8 AM.\n\n🕗 உங்கள் ஆர்டர் நாளை காலை 7 - 8 மணிக்கு டெலிவரி செய்யப்படும்.\n",
+
+                           Text(
+                                "🕗 Your order will be delivered Tomorrow ($formattedTomorrow) between 6 – 7 AM.\n\n🕗 உங்கள் ஆர்டர் நாளை ($formattedTomorrow) காலை 6 – 7 மணிக்கு டெலிவரி செய்யப்படும்.\n",
                                 style: TextStyle(
                                   fontSize: 16 * scaleFactor,
                                   color: Colors.orange[800],
@@ -661,7 +674,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
                               ),
                               SizedBox(height: 4 * scaleFactor),
                               Text(
-                                "✅ Today delivery is available only for orders placed before 9 AM.\n\n✅ இன்று காலை 9 மணிக்கு முன் செய்யப்படும் ஆர்டர்களுக்கு மட்டுமே டெலிவரி கிடைக்கும்.",
+                                "✅ Today delivery is available only for orders placed before 9 AM.\n\n✅ இன்று காலை 9 மணிக்கு முன் செய்யப்படும் ஆர்டர்களுக்கு மட்டுமே இன்று டெலிவரி கிடைக்கும்.",
                                 style: TextStyle(
                                   fontSize: 14 * scaleFactor,
                                   color: Colors.grey[700],
@@ -731,6 +744,18 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
           ),
       ],
     );
+  }
+  String _getWeekday(int weekday) {
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    return days[(weekday - 1) % 7];
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return months[month - 1];
   }
 
   Widget _buildSelectionCard(String title, List<String> options,

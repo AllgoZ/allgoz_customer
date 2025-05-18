@@ -1,4 +1,5 @@
 import 'package:allgoz/Cart/Checkout/checkout.dart';
+import 'package:allgoz/services/youtube_player_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:allgoz/Cart/cart.dart';
@@ -311,8 +312,16 @@ class _CategoryScreenState extends State<CategoryScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.video_collection_rounded, color: Colors.white),
-            onPressed: () {},
+            onPressed: () {
+              showDialog(
+                context: context,
+                barrierColor: Colors.transparent,
+                builder: (_) => const YoutubePlayerOverlay(fieldName: 'category'), // Use any valid field key here
+              );
+            },
           ),
+
+
           IconButton(
             icon: Icon(Icons.shopping_cart, size: 24 * scaleFactor,color: Colors.white),
             onPressed: () {

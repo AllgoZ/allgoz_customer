@@ -1,8 +1,10 @@
+import 'package:allgoz/Account/Contact%20Support/contact_support.dart';
 import 'package:allgoz/Account/account.dart';
 import 'package:allgoz/Cart/cart.dart';
 import 'package:allgoz/Favorite/favorite.dart';
 import 'package:allgoz/Home/Categories/category_list.dart';
 import 'package:allgoz/Orders/my_orders.dart';
+import 'package:allgoz/services/youtube_player_widget.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +13,8 @@ import 'package:location/location.dart' as loc;
 import 'package:flutter/services.dart'; // For SystemNavigator.pop
 import 'dart:io'; // For Platform check
 import 'dart:async';
+import 'dart:ui'; // for ImageFilter (blur)
+import 'package:shared_preferences/shared_preferences.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -57,6 +61,88 @@ class _HomePageState extends State<HomePage> {
     _bannerTimer?.cancel();
     super.dispose();
   }
+  // Future<void> _showTutorialIfNewUser() async {
+  //   SharedPreferences prefs = await SharedPreferences.getInstance();
+  //   bool hasSeenTutorial = prefs.getBool('seen_homepage_tutorial') ?? false;
+  //
+  //   if (!hasSeenTutorial) {
+  //     await prefs.setBool('seen_homepage_tutorial', true);
+  //
+  //     // Delay to ensure UI is ready
+  //     Future.delayed(const Duration(milliseconds: 300), () {
+  //       _showTutorialOverlay();
+  //     });
+  //   }
+  // }
+  // void _showTutorialOverlay() {
+  //   showDialog(
+  //     context: context,
+  //     barrierDismissible: false, // Prevents closing accidentally
+  //     barrierColor: Colors.black.withOpacity(0.4),
+  //     builder: (_) {
+  //       return Stack(
+  //         children: [
+  //           // iOS-style smooth blurred background
+  //           BackdropFilter(
+  //             filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+  //             child: Container(color: Colors.black.withOpacity(0.3)),
+  //           ),
+  //
+  //           // Centered dialog-style video overlay
+  //           Center(
+  //             child: Container(
+  //               margin: const EdgeInsets.symmetric(horizontal: 16),
+  //               padding: const EdgeInsets.all(12),
+  //               decoration: BoxDecoration(
+  //                 color: Colors.white,
+  //                 borderRadius: BorderRadius.circular(16),
+  //                 boxShadow: [
+  //                   BoxShadow(
+  //                     color: Colors.black26,
+  //                     blurRadius: 20,
+  //                     offset: const Offset(0, 8),
+  //                   )
+  //                 ],
+  //               ),
+  //               width: MediaQuery.of(context).size.width * 0.9,
+  //               height: MediaQuery.of(context).size.height * 0.6,
+  //               child: Stack(
+  //                 children: [
+  //                   // Your video player overlay
+  //                   const YoutubePlayerOverlay(fieldName: 'intro'),
+  //
+  //                   // Close button (top-right)
+  //                   Positioned(
+  //                     top: 8,
+  //                     right: 8,
+  //                     child: GestureDetector(
+  //                       onTap: () => Navigator.of(context).pop(),
+  //                       child: const CircleAvatar(
+  //                         backgroundColor: Colors.black54,
+  //                         radius: 16,
+  //                         child: Icon(Icons.close, color: Colors.white, size: 18),
+  //                       ),
+  //                     ),
+  //                   ),
+  //                 ],
+  //               ),
+  //             ),
+  //           ),
+  //         ],
+  //       );
+  //     },
+  //   );
+  // }
+  //
+  //
+  // Future<void> _checkLocationStatus() async {
+  //   bool serviceEnabled = await location.serviceEnabled();
+  //   if (!serviceEnabled) {
+  //     _showLocationBottomSheet();
+  //   } else {
+  //     _showTutorialIfNewUser(); // <- Trigger the tutorial overlay
+  //   }
+  // }
 
 
   Future<void> _checkLocationStatus() async {
@@ -232,12 +318,19 @@ class _HomePageState extends State<HomePage> {
           actions: [
             IconButton(
               icon: const Icon(Icons.video_collection_rounded, color: Colors.white),
-              onPressed: () {},
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  barrierColor: Colors.transparent,
+                  builder: (_) => const YoutubePlayerOverlay(fieldName: 'homepage'),
+                );
+              },
             ),
+
             IconButton(
               icon: const Icon(Icons.help_outline, color: Colors.white),
               onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => MyOrdersScreen()));
+                Navigator.push(context, MaterialPageRoute(builder: (context) => ContactSupportScreen()));
               },
             ),
           ],

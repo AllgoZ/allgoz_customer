@@ -223,10 +223,55 @@ class _TrackCurrentOrderScreenState extends State<TrackCurrentOrderScreen> {
             ),
             SizedBox(height: 5 * scaleFactor),
 
-            Text(
-              "Estimated Delivery: 7 - 8 AM",
-              style: TextStyle(fontSize: 16 * scaleFactor, color: Colors.orange),
+            Builder(
+              builder: (context) {
+                if (currentOrder['status'] == 'Delivered') {
+                  final updatedAt = currentOrder['updatedAt'];
+                  final deliveredAt = updatedAt is Timestamp ? updatedAt.toDate() : null;
+
+                  String time = deliveredAt != null
+                      ? "${deliveredAt.hour.toString().padLeft(2, '0')}:${deliveredAt.minute.toString().padLeft(2, '0')} on ${deliveredAt.day}/${deliveredAt.month}/${deliveredAt.year}"
+                      : "N/A";
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Delivered: $time",
+                        style: TextStyle(fontSize: 16 * scaleFactor, color: Colors.green, fontWeight: FontWeight.bold),
+                      ),
+                      if (riderDetails != null)
+                        Text(
+                          "Delivered By: ${riderDetails!['fullName'] ?? 'Rider'}",
+                          style: TextStyle(fontSize: 16 * scaleFactor, fontWeight: FontWeight.bold),
+                        ),
+                    ],
+                  );
+                } else {
+                  final orderDate = currentOrder['orderDate'];
+                  String deliveryInfo = "N/A";
+
+                  if (orderDate != null && orderDate is Timestamp) {
+                    final orderTime = orderDate.toDate().toUtc().add(const Duration(hours: 5, minutes: 30)); // IST
+                    final nineAM = DateTime(orderTime.year, orderTime.month, orderTime.day, 9);
+
+                    if (orderTime.isBefore(nineAM)) {
+                      deliveryInfo = "Within 20 minutes";
+                    } else {
+                      final tomorrow = orderTime.add(const Duration(days: 1));
+                      final formattedTomorrow = "${tomorrow.day}/${tomorrow.month.toString().padLeft(2, '0')}/${tomorrow.year}";
+                      deliveryInfo = "Tomorrow $formattedTomorrow between 6 – 7 AM";
+                    }
+                  }
+
+                  return Text(
+                    "Estimated Delivery: $deliveryInfo",
+                    style: TextStyle(fontSize: 16 * scaleFactor, color: Colors.orange),
+                  );
+                }
+              },
             ),
+
 
             SizedBox(height: 10 * scaleFactor),
 
