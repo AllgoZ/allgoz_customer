@@ -249,6 +249,8 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
   String? userCustomerId;
   String? customerName;
   String? selectedAddress;
+  String? customerUniqueId; // 👈 Add this
+
   Map<String, dynamic>? addressDetails;
 
   late AnimationController _controller;
@@ -327,11 +329,14 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
           .get();
 
       if (userDoc.exists && userDoc.data() != null) {
+        final data = userDoc.data() as Map<String, dynamic>;
+
         setState(() {
-          customerName = userDoc['name'] ?? 'Unknown User';
+          customerName = data['name'] ?? 'Unknown User';
+          customerUniqueId = data['uniqueId']; // ✅ Now properly assigned to class variable
         });
 
-        String? defaultAddressId = userDoc['defaultAddress'];
+        String? defaultAddressId = data['defaultAddress'];
         if (defaultAddressId != null) {
           DocumentSnapshot addressDoc = await FirebaseFirestore.instance
               .collection('customers')
@@ -367,6 +372,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
     }
   }
 
+
   Future<void> _updateDeliveryDetails() async {
     if (userCustomerId == null || selectedAddress == null) return;
 
@@ -397,7 +403,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
 
   void _placeOrder() async {
     if (userUID == null || userCustomerId == null || selectedAddress == null ||
-        addressDetails == null) {
+        addressDetails == null || customerUniqueId == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text("Please select or add an address."),
         backgroundColor: Colors.red,
@@ -429,16 +435,19 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
           .substring(0, 10)
           .replaceAll('-', '');
       final counterRef = FirebaseFirestore.instance.collection('orderCounter')
-          .doc(todayStr);
+          .doc(customerUniqueId); // 👈 use customerUniqueId as doc ID
       final counterSnap = await counterRef.get();
+
       int counter = 1;
       if (counterSnap.exists) {
         counter = (counterSnap.data()?['count'] ?? 0) + 1;
       }
       await counterRef.set({'count': counter});
 
-      final customOrderId = 'ORD-$todayStr-${counter.toString().padLeft(
-          6, '0')}';
+// 👇 Create order ID like ORD-2025AB12-000001
+      final currentYear = DateTime.now().year.toString();
+      final customOrderId = '$currentYear$customerUniqueId-${counter.toString().padLeft(4, '0')}';
+
       final user = FirebaseAuth.instance.currentUser;
       final emailKey = user!.email!.replaceAll('.', '_').replaceAll('@', '_');
       userCustomerId = 'google_$emailKey'; // ✅ update the class variable

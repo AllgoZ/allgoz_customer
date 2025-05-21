@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:allgoz/Home/home.dart';
+import 'dart:math';
+
 
 class EnterNamePage extends StatefulWidget {
   const EnterNamePage({super.key});
@@ -23,6 +25,37 @@ class _EnterNamePageState extends State<EnterNamePage> {
     _user = FirebaseAuth.instance.currentUser;
   }
 
+  Future<String> _generateUniqueCustomerId() async {
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    final rand = Random();
+
+    String generateId() {
+      final charPart = List.generate(2, (_) => letters[rand.nextInt(letters.length)]).join();
+      final numberPart = rand.nextInt(100).toString().padLeft(2, '0');
+      return '$charPart$numberPart'; // e.g., AB12
+    }
+
+    String newId;
+    bool exists = true;
+
+    do {
+      newId = generateId();
+
+      // Check Firestore for uniqueness
+      final existing = await FirebaseFirestore.instance
+          .collection('customers')
+          .where('uniqueId', isEqualTo: newId)
+          .limit(1)
+          .get();
+
+      exists = existing.docs.isNotEmpty;
+    } while (exists);
+
+    return newId;
+  }
+
+
+
   Future<void> _submitName(BuildContext context) async {
     if (_nameController.text.trim().isEmpty) {
       _showSnackbar('Please enter your name');
@@ -40,7 +73,7 @@ class _EnterNamePageState extends State<EnterNamePage> {
       final safeEmail = _user!.email!.replaceAll('.', '_').replaceAll('@', '_');
       final customerId = 'google_$safeEmail';
       final userRef = FirebaseFirestore.instance.collection('customers').doc(customerId);
-
+      final uniqueId = await _generateUniqueCustomerId();
       final userDoc = await userRef.get();
       if (userDoc.exists) {
         _showSnackbar('User already exists. Logging in...');
@@ -51,6 +84,7 @@ class _EnterNamePageState extends State<EnterNamePage> {
       await userRef.set({
         'customerId': customerId,
         'name': _nameController.text.trim(),
+        'uniqueId': uniqueId,
         'email': _user!.email,
         'uid': _user!.uid,
         'referralCode': _showReferralInput ? _referralController.text.trim() : null,
