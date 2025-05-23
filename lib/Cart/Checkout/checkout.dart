@@ -242,6 +242,8 @@ double? longitude;
 
 class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProviderStateMixin {
   List<String> paymentMethods = [];
+  String? dynamicOrderMessage;
+  String? dynamicNoteMessage;
 
   String selectedPaymentMethod = 'Cash on Delivery';
   String selectedDeliveryDay = 'Today';
@@ -261,10 +263,13 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
   @override
   void initState() {
     super.initState();
-    _checkDeliveryEligibility();
     _fetchUserDetails();
     _getCurrentLocation();
     _fetchPaymentMethods();
+    _fetchDeliveryMessages(); // ✅ Always fetch tomorrow’s message
+
+    selectedDeliveryDay = 'Tomorrow'; // ✅ Always set to tomorrow
+    _updateDeliveryDetails();
 
     _controller = AnimationController(
       duration: const Duration(milliseconds: 2500),
@@ -275,9 +280,32 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
       CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
     );
 
-
     _controller.forward();
   }
+
+
+  Future<void> _fetchDeliveryMessages() async {
+    final doc = await FirebaseFirestore.instance
+        .collection('DeliveryMessage')
+        .doc('Message')
+        .get();
+
+    if (doc.exists && doc.data() != null) {
+      final data = doc.data()!;
+      final tomorrow = DateTime.now().add(const Duration(days: 1));
+      final formattedTomorrow = DateFormat('dd/MM/yyyy').format(tomorrow);
+
+      setState(() {
+        dynamicOrderMessage = data['order'] ?? '';
+        dynamicNoteMessage = data['note'] ?? '';
+        // You can keep date separately if you want to use at end
+        dynamicOrderMessage = "$dynamicOrderMessage\n🗓📌 $formattedTomorrow";
+      });
+    }
+  }
+
+
+
 
   Future<void> _getCurrentLocation() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -412,68 +440,80 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
     }
 
     setState(() => isLoading = true);
-    await _updateDeliveryDetails();
+
+    final formattedToday = DateTime.now().toLocal().toString().substring(0, 10).replaceAll('-', '');
+    final currentYear = DateTime.now().year.toString();
+    final emailKey = FirebaseAuth.instance.currentUser!.email!
+        .replaceAll('.', '_').replaceAll('@', '_');
+    userCustomerId = 'google_$emailKey';
+
+    final counterRef = FirebaseFirestore.instance
+        .collection('orderCounter')
+        .doc(customerUniqueId);
+
+    final orderRef = FirebaseFirestore.instance
+        .collection('orders')
+        .doc(userCustomerId)
+        .collection('orders');
+
+    final nameRef = FirebaseFirestore.instance
+        .collection('orders')
+        .doc(userCustomerId);
+
+    final cartRef = FirebaseFirestore.instance
+        .collection('customers')
+        .doc(userCustomerId)
+        .collection('cart');
+
+    final salesRef = FirebaseFirestore.instance
+        .collection('product_sales')
+        .doc('sales_count');
 
     try {
-      final result = await DeliveryService
-          .checkDeliveryFeasibilityAndPlaceOrder(
-        sellerUid: '344y6ZUTzuWRfjFMzR5mImLNAmt1',
-        customerPhoneNumber: userCustomerId!,
-        addressId: addressDetails!['id'] ?? 'default',
-      );
+      // ⏱ Parallel execution
+      final results = await Future.wait([
+        _updateDeliveryDetails(),
+        DeliveryService.checkDeliveryFeasibilityAndPlaceOrder(
+          sellerUid: '344y6ZUTzuWRfjFMzR5mImLNAmt1',
+          customerPhoneNumber: userCustomerId!,
+          addressId: addressDetails!['id'] ?? 'default',
+        ),
+        counterRef.get(),
+        salesRef.get(),
+      ]);
+
+      final result = results[1] as Map<String, dynamic>;
+      final counterSnap = results[2] as DocumentSnapshot;
+      final salesSnap = results[3] as DocumentSnapshot;
 
       if (!result['success']) {
         setState(() => isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(result['message']),
-          backgroundColor: Colors.red,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message']), backgroundColor: Colors.red),
+        );
         return;
       }
 
-      final todayStr = DateTime.now().toLocal().toString()
-          .substring(0, 10)
-          .replaceAll('-', '');
-      final counterRef = FirebaseFirestore.instance.collection('orderCounter')
-          .doc(customerUniqueId); // 👈 use customerUniqueId as doc ID
-      final counterSnap = await counterRef.get();
-
       int counter = 1;
       if (counterSnap.exists) {
-        counter = (counterSnap.data()?['count'] ?? 0) + 1;
+        final counterData = counterSnap.data() as Map<String, dynamic>? ?? {};
+        counter = (counterData['count'] ?? 0) + 1;
+
       }
-      await counterRef.set({'count': counter});
 
-// 👇 Create order ID like ORD-2025AB12-000001
-      final currentYear = DateTime.now().year.toString();
-      final customOrderId = '$currentYear$customerUniqueId-${counter.toString().padLeft(4, '0')}';
+      final orderId = '$currentYear$customerUniqueId-${counter.toString().padLeft(4, '0')}';
+      final orderDoc = orderRef.doc(orderId);
 
-      final user = FirebaseAuth.instance.currentUser;
-      final emailKey = user!.email!.replaceAll('.', '_').replaceAll('@', '_');
-      userCustomerId = 'google_$emailKey'; // ✅ update the class variable
-
-
-      final customerOrderRef = FirebaseFirestore.instance
-          .collection('orders')
-          .doc(userCustomerId) // ✅ correct path
-          .collection('orders')
-          .doc(customOrderId);
-// ✅ Ensure parent document exists with 'name' field for seller app visibility
-      await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(userCustomerId)
-          .set({'name': customerName}, SetOptions(merge: true));
-
-      await customerOrderRef.set({
-        'orderId': customOrderId,
+      // 🧾 Order Data
+      final orderData = {
+        'orderId': orderId,
         'userPhoneNumber': userCustomerId,
         'customerName': customerName,
         'customerUID': userUID,
         'mobileNumber': addressDetails!['phone'],
         'items': widget.cartItems,
         'totalAmount': widget.cartItems.fold<double>(
-          0,
-              (sum, item) => sum + (item['price'] * item['quantity']),
+          0, (sum, item) => sum + (item['price'] * item['quantity']),
         ).toInt(),
         'paymentMethod': selectedPaymentMethod,
         'deliveryDay': selectedDeliveryDay,
@@ -486,54 +526,47 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
         'distances': result['distances'],
         'mapLinks': result['mapLinks'],
         'sellerid': '344y6ZUTzuWRfjFMzR5mImLNAmt1',
-        'deliveryPartnerUid': result['deliveryPartnerUid'],
         'allDeliveryPartners': result['deliveryPartners'],
-      });
-// 🔁 Update sales count for each product
-      final salesDocRef = FirebaseFirestore.instance
-          .collection('product_sales')
-          .doc('sales_count');
+      };
 
-      final salesSnapshot = await salesDocRef.get();
+      // 📈 Update product sales counts
       Map<String, dynamic> existingCounts = {};
-      if (salesSnapshot.exists) {
-        existingCounts = Map<String, dynamic>.from(salesSnapshot.data() ?? {});
+      if (salesSnap.exists) {
+        final salesData = salesSnap.data() as Map<String, dynamic>? ?? {};
+        existingCounts = Map<String, dynamic>.from(salesData);
+
       }
 
       Map<String, dynamic> updatedCounts = {};
-
       for (var item in widget.cartItems) {
-        final String productId = item['id'];
-        final String productName = item['name'];
-        final int qty = item['quantity'] ?? 1;
-
-        final String combinedKey = "${productId}_$productName";
-
-        final int currentCount = int.tryParse(existingCounts[combinedKey]?.toString() ?? '0') ?? 0;
-        updatedCounts[combinedKey] = (currentCount + qty).toString(); // 🔁 stored as string
+        final id = item['id'];
+        final name = item['name'];
+        final key = '${id}_$name';
+        final qty = item['quantity'] ?? 1;
+        final current = int.tryParse(existingCounts[key]?.toString() ?? '0') ?? 0;
+        updatedCounts[key] = (current + qty).toString();
       }
 
-      await salesDocRef.set(updatedCounts, SetOptions(merge: true));
+      // 🧾 Batch write
+      final batch = FirebaseFirestore.instance.batch();
+      batch.set(orderDoc, orderData);
+      batch.set(nameRef, {'name': customerName}, SetOptions(merge: true));
+      batch.set(counterRef, {'count': counter});
+      batch.set(salesRef, updatedCounts, SetOptions(merge: true));
+      await batch.commit();
 
-      await salesDocRef.set(updatedCounts, SetOptions(merge: true));
-
-      final cartRef = FirebaseFirestore.instance
-          .collection('customers')
-          .doc(userCustomerId)
-          .collection('cart');
-
-      final cartItems = await cartRef.get();
-      for (var doc in cartItems.docs) {
-        await doc.reference.delete();
-      }
+      // 🧹 Clear cart (non-blocking)
+      FirebaseFirestore.instance.runTransaction((transaction) async {
+        final cartItems = await cartRef.get();
+        for (final doc in cartItems.docs) {
+          transaction.delete(doc.reference);
+        }
+      });
 
       setState(() => isLoading = false);
-
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text("Your order has been placed successfully!"),
-        backgroundColor: Colors.green,
-      ));
-
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Your order has been placed successfully!"), backgroundColor: Colors.green),
+      );
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const HomePage()),
@@ -541,12 +574,12 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
       );
     } catch (e) {
       setState(() => isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text("Order failed: $e"),
-        backgroundColor: Colors.red,
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Order failed: $e"), backgroundColor: Colors.red),
+      );
     }
   }
+
 
   @override
   void dispose() {
@@ -656,7 +689,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
                       SizedBox(height: 20 * scaleFactor),
                       _buildSelectionCard(
                         'Delivery Day',
-                        isAfter9AM ? ['Tomorrow'] : ['Today', 'Tomorrow'],
+                        isAfter9AM ? ['Tomorrow'] : ['Tomorrow'],
                         selectedDeliveryDay,
                             (value) {
                           setState(() {
@@ -666,32 +699,42 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
                         },
                         scaleFactor,
                       ),
-                      if (isAfter9AM)
-                        Padding(
-                          padding: EdgeInsets.only(top: 10 * scaleFactor),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
+                      Padding(
+                        padding: EdgeInsets.only(top: 10 * scaleFactor),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (dynamicOrderMessage != null && dynamicOrderMessage!.isNotEmpty)
+                              Padding(
+                                padding: EdgeInsets.only(top: 10 * scaleFactor),
+                                child: Text(
+                                  dynamicOrderMessage!,
+                                  style: TextStyle(
+                                    fontSize: 16 * scaleFactor,
+                                    color: Colors.orange[700],
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.5, // spacing between lines
+                                  ),
+                                ),
+                              ),
+                            if (dynamicNoteMessage != null && dynamicNoteMessage!.isNotEmpty)
+                              Padding(
+                                padding: EdgeInsets.only(top: 10 * scaleFactor),
+                                child: Text(
+                                  dynamicNoteMessage!,
+                                  style: TextStyle(
+                                    fontSize: 16 * scaleFactor,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey[600],
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ),
 
-                           Text(
-                                "🕗 Your order will be delivered Tomorrow ($formattedTomorrow) between 6 – 7 AM.\n\n🕗 உங்கள் ஆர்டர் நாளை ($formattedTomorrow) காலை 6 – 7 மணிக்கு டெலிவரி செய்யப்படும்.\n",
-                                style: TextStyle(
-                                  fontSize: 16 * scaleFactor,
-                                  color: Colors.orange[800],
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              SizedBox(height: 4 * scaleFactor),
-                              Text(
-                                "✅ Today delivery is available only for orders placed before 9 AM.\n\n✅ இன்று காலை 9 மணிக்கு முன் செய்யப்படும் ஆர்டர்களுக்கு மட்டுமே இன்று டெலிவரி கிடைக்கும்.",
-                                style: TextStyle(
-                                  fontSize: 14 * scaleFactor,
-                                  color: Colors.grey[700],
-                                ),
-                              ),
-                            ],
-                          ),
+                          ],
                         ),
+                      ),
+
                       SizedBox(height: 20 * scaleFactor),
                       if (paymentMethods.isNotEmpty)
                         _buildSelectionCard(

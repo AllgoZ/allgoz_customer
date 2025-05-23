@@ -17,6 +17,30 @@ class TrackCurrentOrderScreen extends StatefulWidget {
 class _TrackCurrentOrderScreenState extends State<TrackCurrentOrderScreen> {
   Map<String, dynamic>? riderDetails;
   String? supportPhone;
+  String? dynamicDeliveryMessage;
+
+
+  Future<void> _fetchDeliveryMessage() async {
+    final doc = await FirebaseFirestore.instance
+        .collection('DeliveryMessage')
+        .doc('Message')
+        .get();
+
+    if (doc.exists && doc.data() != null) {
+      final data = doc.data()!;
+      final tomorrow = DateTime.now().add(const Duration(days: 1));
+      final formattedTomorrow = "${tomorrow.day}/${tomorrow.month.toString().padLeft(2, '0')}/${tomorrow.year}";
+
+      final rawMessage = data['order'] ?? '';
+      setState(() {
+        dynamicDeliveryMessage = "$rawMessage\n📅 $formattedTomorrow";
+      });
+    }
+  }
+
+
+
+
 
   Future<void> _fetchRiderDetails(String riderUid) async {
     final riderSnap = await FirebaseFirestore.instance
@@ -58,6 +82,7 @@ class _TrackCurrentOrderScreenState extends State<TrackCurrentOrderScreen> {
       _fetchRiderDetails(order['deliveryPartnerUid']);
     }
     _fetchSupportContact();
+    _fetchDeliveryMessage();
   }
 
   void _makePhoneCall(String phoneNumber) async {
@@ -252,21 +277,16 @@ class _TrackCurrentOrderScreenState extends State<TrackCurrentOrderScreen> {
                   String deliveryInfo = "N/A";
 
                   if (orderDate != null && orderDate is Timestamp) {
-                    final orderTime = orderDate.toDate().toUtc().add(const Duration(hours: 5, minutes: 30)); // IST
-                    final nineAM = DateTime(orderTime.year, orderTime.month, orderTime.day, 9);
+                    return Text(
+                      dynamicDeliveryMessage ?? "Loading delivery info...",
+                      style: TextStyle(fontSize: 16 * scaleFactor, color: Colors.orange[700],fontWeight: FontWeight.w600,),
+                    );
 
-                    if (orderTime.isBefore(nineAM)) {
-                      deliveryInfo = "Within 20 minutes";
-                    } else {
-                      final tomorrow = orderTime.add(const Duration(days: 1));
-                      final formattedTomorrow = "${tomorrow.day}/${tomorrow.month.toString().padLeft(2, '0')}/${tomorrow.year}";
-                      deliveryInfo = "Tomorrow $formattedTomorrow between 6 – 7 AM";
-                    }
                   }
 
                   return Text(
                     "Estimated Delivery: $deliveryInfo",
-                    style: TextStyle(fontSize: 16 * scaleFactor, color: Colors.orange),
+                    style: TextStyle(fontSize: 16 * scaleFactor, color: Colors.orange[700],fontWeight: FontWeight.w600,),
                   );
                 }
               },
