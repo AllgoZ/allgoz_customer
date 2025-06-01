@@ -8,7 +8,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:allgoz/services/delivery_service.dart';
 import 'dart:ui';
 import 'package:intl/intl.dart';
-
+import 'package:allgoz/services/telegram_service.dart';
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
 
@@ -554,6 +554,14 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
       batch.set(counterRef, {'count': counter});
       batch.set(salesRef, updatedCounts, SetOptions(merge: true));
       await batch.commit();
+      TelegramService.sendOrderNotification(
+        orderId: orderId,
+        customerName: customerName ?? 'Unknown',
+        deliveryAddress: selectedAddress ?? 'No Address',
+        totalAmount: orderData['totalAmount'],
+        cartItems: widget.cartItems,
+      );
+
 
       // 🧹 Clear cart (non-blocking)
       FirebaseFirestore.instance.runTransaction((transaction) async {
