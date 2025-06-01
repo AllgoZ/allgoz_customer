@@ -15,6 +15,8 @@ import 'dart:io'; // For Platform check
 import 'dart:async';
 import 'dart:ui'; // for ImageFilter (blur)
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:allgoz/services/tutorial_service.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -25,6 +27,10 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+
+
+  GlobalKey videoIconKey = GlobalKey();
+
   List<String> bannerImages = [];
   int _currentPage = 0;
   String searchQuery = '';
@@ -32,17 +38,18 @@ class _HomePageState extends State<HomePage> {
   List<Map<String, dynamic>> categories = [];
   late PageController _pageController;
   Timer? _bannerTimer;
-
+  final TutorialService tutorialService = TutorialService();
+  List<TargetFocus> tutorialTargets = [];
+  TutorialCoachMark? tutorialCoachMark;
   int _selectedIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: 0);
-    _checkLocationStatus();
+    _startTutorialFlow(); // 👈 custom method
     _fetchCategories();
     _fetchBanners();
-
     _bannerTimer = Timer.periodic(const Duration(seconds: 10), (Timer timer) {
       if (bannerImages.isNotEmpty && _pageController.hasClients) {
         int nextPage = (_currentPage + 1) % bannerImages.length;
@@ -53,7 +60,11 @@ class _HomePageState extends State<HomePage> {
         );
       }
     });
+
   }
+
+
+
 
   @override
   void dispose() {
@@ -61,100 +72,118 @@ class _HomePageState extends State<HomePage> {
     _bannerTimer?.cancel();
     super.dispose();
   }
-  // Future<void> _showTutorialIfNewUser() async {
-  //   SharedPreferences prefs = await SharedPreferences.getInstance();
-  //   bool hasSeenTutorial = prefs.getBool('seen_homepage_tutorial') ?? false;
-  //
-  //   if (!hasSeenTutorial) {
-  //     await prefs.setBool('seen_homepage_tutorial', true);
-  //
-  //     // Delay to ensure UI is ready
-  //     Future.delayed(const Duration(milliseconds: 300), () {
-  //       _showTutorialOverlay();
-  //     });
-  //   }
-  // }
-  // void _showTutorialOverlay() {
-  //   showDialog(
-  //     context: context,
-  //     barrierDismissible: false, // Prevents closing accidentally
-  //     barrierColor: Colors.black.withOpacity(0.4),
-  //     builder: (_) {
-  //       return Stack(
-  //         children: [
-  //           // iOS-style smooth blurred background
-  //           BackdropFilter(
-  //             filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-  //             child: Container(color: Colors.black.withOpacity(0.3)),
-  //           ),
-  //
-  //           // Centered dialog-style video overlay
-  //           Center(
-  //             child: Container(
-  //               margin: const EdgeInsets.symmetric(horizontal: 16),
-  //               padding: const EdgeInsets.all(12),
-  //               decoration: BoxDecoration(
-  //                 color: Colors.white,
-  //                 borderRadius: BorderRadius.circular(16),
-  //                 boxShadow: [
-  //                   BoxShadow(
-  //                     color: Colors.black26,
-  //                     blurRadius: 20,
-  //                     offset: const Offset(0, 8),
-  //                   )
-  //                 ],
-  //               ),
-  //               width: MediaQuery.of(context).size.width * 0.9,
-  //               height: MediaQuery.of(context).size.height * 0.6,
-  //               child: Stack(
-  //                 children: [
-  //                   // Your video player overlay
-  //                   const YoutubePlayerOverlay(fieldName: 'intro'),
-  //
-  //                   // Close button (top-right)
-  //                   Positioned(
-  //                     top: 8,
-  //                     right: 8,
-  //                     child: GestureDetector(
-  //                       onTap: () => Navigator.of(context).pop(),
-  //                       child: const CircleAvatar(
-  //                         backgroundColor: Colors.black54,
-  //                         radius: 16,
-  //                         child: Icon(Icons.close, color: Colors.white, size: 18),
-  //                       ),
-  //                     ),
-  //                   ),
-  //                 ],
-  //               ),
-  //             ),
-  //           ),
-  //         ],
-  //       );
-  //     },
-  //   );
-  // }
-  //
-  //
-  // Future<void> _checkLocationStatus() async {
-  //   bool serviceEnabled = await location.serviceEnabled();
-  //   if (!serviceEnabled) {
-  //     _showLocationBottomSheet();
-  //   } else {
-  //     _showTutorialIfNewUser(); // <- Trigger the tutorial overlay
-  //   }
-  // }
 
 
-  Future<void> _checkLocationStatus() async {
-    bool serviceEnabled = await location.serviceEnabled();
-    if (!serviceEnabled) {
-      _showLocationBottomSheet();
+
+  void _startTutorialFlow() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    bool tutorialDone = prefs.getBool('tutorial_shown') ?? false;
+
+    if (!tutorialDone) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showTutorial(prefs);
+      });
+    } else {
+      _checkLocationStatus(); // ✅ Skip tutorial, go to location
     }
   }
 
+  void _showTutorial(SharedPreferences prefs) {
+    tutorialTargets = [
+      TargetFocus(
+        identify: "video_icon",
+        keyTarget: videoIconKey,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    "Tap here to watch the intro video!,\n"
+                        "அப்பை எப்படி பயன்படுத்துவது என்று தெரிந்து கொள்ள இந்த வீடியோ பட்டனை அழுத்தவும்",
+
+                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () {
+                    tutorialCoachMark?.skip();
+                  },
+                  child: const Text(
+                    "SKIP",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ];
+
+    tutorialCoachMark = TutorialCoachMark(
+      targets: tutorialTargets,
+      colorShadow: Colors.black,
+      paddingFocus: 10,
+      onClickTarget: (_) async {
+        tutorialCoachMark?.finish();
+        final prefs = await SharedPreferences.getInstance();
+        prefs.setBool('tutorial_shown', true);
+
+        await showDialog(
+          context: context,
+          barrierColor: Colors.transparent,
+          builder: (_) => const YoutubePlayerOverlay(fieldName: 'homepage'),
+        );
+
+        _checkLocationStatus();
+      },
+      onSkip: () {
+        prefs.setBool('tutorial_shown', true);
+        _checkLocationStatus();
+        return true;
+      },
+      onFinish: () {
+        prefs.setBool('tutorial_shown', true);
+        return true;
+      },
+    )..show(context: context);
+  }
+
+
+  Future<void> _checkLocationStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool locationShown = prefs.getBool('location_shown') ?? false;
+
+    if (locationShown) return;
+
+    bool serviceEnabled = await location.serviceEnabled();
+    if (!serviceEnabled) {
+      _showLocationBottomSheet();
+      prefs.setBool('location_shown', true);
+    }
+  }
+
+
   Future<void> _fetchCategories() async {
     try {
-      QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('categories').get();
+      QuerySnapshot snapshot = await FirebaseFirestore.instance
+          .collection('categories')
+          .orderBy('order')
+          .get(); // ✅ New line with orderBy
+
       setState(() {
         categories = snapshot.docs.map((doc) => {
           'id': doc.id,
@@ -276,12 +305,12 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.network(imagePath, height: width * 0.2, fit: BoxFit.cover),
+              Image.network(imagePath, height: width * 0.23, fit: BoxFit.cover),
               const SizedBox(height: 10),
               Text(
                 displayTitle,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: width * 0.04, fontWeight: FontWeight.bold, fontFamily: 'Poppins'),
+                style: TextStyle(fontSize: width * 0.038, fontWeight: FontWeight.bold, fontFamily: 'Poppins'),
               ),
             ],
           ),
@@ -297,8 +326,8 @@ class _HomePageState extends State<HomePage> {
 
     return WillPopScope(
       onWillPop: () async {
-        SystemNavigator.pop(); // ✅ Just minimize the app
-        return false;
+        SystemNavigator.pop();
+        return false; // ✅ must return a bool
       },
 
       child: Scaffold(
@@ -317,6 +346,7 @@ class _HomePageState extends State<HomePage> {
           centerTitle: true,
           actions: [
             IconButton(
+              key: videoIconKey, // 👈 REQUIRED for tutorial to work
               icon: const Icon(Icons.video_collection_rounded, color: Colors.white),
               onPressed: () {
                 showDialog(
@@ -326,7 +356,6 @@ class _HomePageState extends State<HomePage> {
                 );
               },
             ),
-
             IconButton(
               icon: const Icon(Icons.help_outline, color: Colors.white),
               onPressed: () {
@@ -334,6 +363,7 @@ class _HomePageState extends State<HomePage> {
               },
             ),
           ],
+
         ),
         body: Padding(
           padding: EdgeInsets.all(width * 0.04),
@@ -403,7 +433,7 @@ class _HomePageState extends State<HomePage> {
                     crossAxisCount: 2,
                     crossAxisSpacing: width * 0.03,
                     mainAxisSpacing: width * 0.03,
-                    childAspectRatio: 0.9,
+                    childAspectRatio: 1,
                   ),
                   itemBuilder: (context, index) {
                     return _buildCategoryCard(

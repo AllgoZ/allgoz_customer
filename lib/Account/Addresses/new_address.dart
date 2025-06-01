@@ -19,13 +19,13 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
   final TextEditingController _landmarkController = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _stateController = TextEditingController();
-  final TextEditingController _pincodeController = TextEditingController();
+  // final TextEditingController _pincodeController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
   bool _isFetchingLocation = false;
   bool _isSavingAddress = false;
 
   String _addressType = 'Home';
-  bool _setAsDefault = false;
+  bool _setAsDefault = true;
 
   void _getCurrentLocation() async {
     setState(() => _isFetchingLocation = true);
@@ -75,7 +75,7 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
     if (_formKey.currentState!.validate()) {
       if (_locationController.text.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Please fetch your current location before saving.")),
+          SnackBar(content: Text("Please fetch your Delivery location by Clicking on Get Delivery Location button before saving.")),
         );
         return;
       }
@@ -104,7 +104,7 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
           "landmark": _landmarkController.text.trim(),
           "city": _cityController.text.trim(),
           "state": _stateController.text.trim(),
-          "pincode": _pincodeController.text.trim(),
+          // "pincode": _pincodeController.text.trim(),
           "location": _locationController.text.trim(),
           "type": _addressType,
           "isDefault": _setAsDefault,
@@ -177,10 +177,10 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
                   "Landmark (Optional)", _landmarkController, scaleFactor,
                   optional: true),
               _buildTextField("City", _cityController, scaleFactor),
-              _buildTextField(
-                  "State", _stateController, scaleFactor, optional: true),
-              _buildTextField("Pincode", _pincodeController, scaleFactor,
-                  keyboardType: TextInputType.number, optional: true),
+              // _buildTextField(
+              //     "State", _stateController, scaleFactor, optional: true),
+              // _buildTextField("Pincode", _pincodeController, scaleFactor,
+              //     keyboardType: TextInputType.number, optional: true),
               _buildTextField(
                   "Current Location", _locationController, scaleFactor,
                   readOnly: true),
@@ -200,7 +200,7 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
                     width: 22 * scaleFactor,
                     height: 22 * scaleFactor,
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text("Get Current Location",
+                    : Text("Get Delivery Location",
                     style: TextStyle(fontSize: 16 * scaleFactor, color: Colors.white)),
               ),
 

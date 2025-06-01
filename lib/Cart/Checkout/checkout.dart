@@ -268,7 +268,8 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
     _fetchPaymentMethods();
     _fetchDeliveryMessages(); // ✅ Always fetch tomorrow’s message
 
-    selectedDeliveryDay = 'Tomorrow'; // ✅ Always set to tomorrow
+    // _fetchCutoffTime(); // ✅ Dynamically decide based on Firestore
+    // ✅ Always set to tomorrow
     _updateDeliveryDetails();
 
     _controller = AnimationController(
@@ -399,6 +400,44 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
       }
     }
   }
+
+  Future<void> _fetchCutoffTime() async {
+    try {
+      final timingDoc = await FirebaseFirestore.instance
+          .collection('DeliveryMessage')
+          .doc('DeliveryTiming')
+          .get();
+
+      if (timingDoc.exists && timingDoc.data() != null) {
+        final data = timingDoc.data()!;
+        final timeString = data['Time'] ?? '8:00 AM';
+
+        final now = DateTime.now(); // Already in local time (IST)
+
+        // Combine today's date with timeString to get the full cutoff DateTime
+        final format = DateFormat('yyyy-MM-dd h:mm a');
+        final todayString = DateFormat('yyyy-MM-dd').format(now);
+        final fullDateTimeString = '$todayString $timeString';
+
+        final cutoffTime = format.parse(fullDateTimeString);
+
+        print('🕗 CUTOFF: $cutoffTime');
+        print('🕒 NOW: $now');
+
+        setState(() {
+          selectedDeliveryDay = now.isAfter(cutoffTime) ? 'Tomorrow' : 'Today';
+        });
+
+        _updateDeliveryDetails();
+      }
+    } catch (e) {
+      print("Error fetching cutoff time: $e");
+      setState(() {
+        // selectedDeliveryDay = 'Tomorrow'; // fallback if error
+      });
+    }
+  }
+
 
 
   Future<void> _updateDeliveryDetails() async {
