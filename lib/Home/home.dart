@@ -110,7 +110,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   child: const Text(
                     "Tap here to watch the intro video!,\n"
-                        "அப்பை எப்படி பயன்படுத்துவது என்று தெரிந்து கொள்ள இந்த வீடியோ பட்டனை அழுத்தவும்",
+                        "Appஐ எப்படி பயன்படுத்துவது என்று தெரிந்து கொள்ள இந்த வீடியோ பட்டனை அழுத்தவும்",
 
                     style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                   ),
