@@ -50,12 +50,12 @@ class _HomePageState extends State<HomePage> {
     _startTutorialFlow(); // 👈 custom method
     _fetchCategories();
     _fetchBanners();
-    _bannerTimer = Timer.periodic(const Duration(seconds: 10), (Timer timer) {
+    _bannerTimer = Timer.periodic(const Duration(seconds: 3), (Timer timer) {
       if (bannerImages.isNotEmpty && _pageController.hasClients) {
         int nextPage = (_currentPage + 1) % bannerImages.length;
         _pageController.animateToPage(
           nextPage,
-          duration: const Duration(milliseconds: 400),
+          duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
         );
       }
