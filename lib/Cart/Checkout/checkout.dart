@@ -9,6 +9,8 @@ import 'package:allgoz/services/delivery_service.dart';
 import 'dart:ui';
 import 'package:intl/intl.dart';
 import 'package:allgoz/services/telegram_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
 
@@ -20,19 +22,55 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String selectedPaymentMethod = 'Cash on Delivery';
   String? userCustomerId;
   List<Map<String, dynamic>> cartItems = [];
+  double promotionDiscount = 0.0;
+  int promoUsed = 0;
+  int maxPromoOrders = 2;
 
   @override
   void initState() {
     super.initState();
     _fetchUserCustomerId();
+
   }
 
-  void _fetchUserCustomerId() {
+
+  Future<void> fetchPromotionDiscount(String id) async {
+    final firestore = FirebaseFirestore.instance;
+
+    final offerDoc = await firestore.collection('offers').doc('first50Users').get();
+    final promoDoc = await firestore.collection('promotions').doc(id).get();
+
+    if (!offerDoc.exists || !promoDoc.exists || !(offerDoc['isActive'] ?? false)) return;
+
+    int used = promoDoc['discountUsedCount'] ?? 0;
+    int max = offerDoc['totalDiscountedOrders'] ?? 2;
+    int discount = offerDoc['discountPerOrder'] ?? 50;
+
+    // 👇 Only apply if subtotal is already available and >= 100
+    double subtotal = calculateTotalAmount(cartItems);
+    if (used < max && subtotal >= 100) {
+      setState(() {
+        promotionDiscount = discount.toDouble();
+        promoUsed = used;
+        maxPromoOrders = max;
+      });
+    } else {
+      // 👇 Clear any stale discount
+      setState(() {
+        promotionDiscount = 0.0;
+      });
+    }
+  }
+
+
+  void _fetchUserCustomerId() async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null && user.email != null) {
+      final id = 'google_${user.email!.replaceAll('.', '_').replaceAll('@', '_')}';
       setState(() {
-        userCustomerId = 'google_${user.email!.replaceAll('.', '_').replaceAll('@', '_')}';
+        userCustomerId = id;
       });
+      await fetchPromotionDiscount(id); // ✅ call immediately after
     }
   }
 
@@ -101,7 +139,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 }).toList();
 
                 double totalAmount = calculateTotalAmount(cartItems);
-                double finalAmount = totalAmount - discount + deliveryCharge + packagingFee;
+                double finalAmount = totalAmount - discount - promotionDiscount + deliveryCharge + packagingFee;
+
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -177,6 +216,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   trailing: Text('₹$packagingFee',
                                       style: TextStyle(fontSize: 18 * scaleFactor)),
                                 ),
+                                if (promotionDiscount > 0)
+                                  ListTile(
+                                    title: Text(
+                                      'First Order Offer (${maxPromoOrders - promoUsed} left)',
+                                      style: TextStyle(fontSize: 18 * scaleFactor, color: Colors.green[800]),
+                                    ),
+                                    trailing: Text(
+                                      '- ₹${promotionDiscount.toStringAsFixed(0)}',
+                                      style: TextStyle(fontSize: 18 * scaleFactor, color: Colors.green[800]),
+                                    ),
+                                  ),
                                 Divider(thickness: 1 * scaleFactor),
                                 ListTile(
                                   title: Text('Total',
@@ -201,7 +251,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           context,
                           MaterialPageRoute(
                               builder: (context) =>
-                                  DeliveryScreen(cartItems: cartItems)),
+                                  DeliveryScreen(      cartItems: cartItems,
+                                    promotionDiscount: promotionDiscount,
+                                    userCustomerId: userCustomerId!,)),
                         );
                       },
                       style: ElevatedButton.styleFrom(
@@ -230,8 +282,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
 class DeliveryScreen extends StatefulWidget {
   final List<Map<String, dynamic>> cartItems;
+  final double promotionDiscount;
+  final String userCustomerId;
 
-  const DeliveryScreen({super.key, required this.cartItems});
+  const DeliveryScreen({super.key, required this.cartItems,required this.promotionDiscount,
+    required this.userCustomerId,});
 
   @override
   _DeliveryScreenState createState() => _DeliveryScreenState();
@@ -342,6 +397,32 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
 
     _updateDeliveryDetails(); // ✅ Update Firestore with the auto-selected value
   }
+
+
+
+  Future<void> updatePromotionUsage(String userCustomerId, double promotionDiscount) async {
+    if (promotionDiscount <= 0) return;
+
+    final promoRef = FirebaseFirestore.instance.collection('promotions').doc(userCustomerId);
+
+    try {
+      final doc = await promoRef.get();
+      if (doc.exists) {
+        int used = doc['discountUsedCount'] ?? 0;
+        int total = doc['totalDiscountedAmount'] ?? 0;
+
+        await promoRef.update({
+          'discountUsedCount': used + 1,
+          'totalDiscountedAmount': total + promotionDiscount.toInt(),
+        });
+
+        print("✅ Promotion usage updated");
+      }
+    } catch (e) {
+      print("❌ Failed to update promotion usage: $e");
+    }
+  }
+
 
   void _fetchUserDetails() async {
     User? user = FirebaseAuth.instance.currentUser;
@@ -593,6 +674,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
       batch.set(counterRef, {'count': counter});
       batch.set(salesRef, updatedCounts, SetOptions(merge: true));
       await batch.commit();
+      await updatePromotionUsage(userCustomerId!, widget.promotionDiscount);
       TelegramService.sendOrderNotification(
         orderId: orderId,
         customerName: customerName ?? 'Unknown',
@@ -614,6 +696,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Your order has been placed successfully!"), backgroundColor: Colors.green),
       );
+
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const HomePage()),

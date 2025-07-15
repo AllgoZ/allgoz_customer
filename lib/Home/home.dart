@@ -6,6 +6,7 @@ import 'package:allgoz/Home/Categories/category_list.dart';
 import 'package:allgoz/Orders/my_orders.dart';
 import 'package:allgoz/services/youtube_player_widget.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -75,6 +76,39 @@ class _HomePageState extends State<HomePage> {
 
 
 
+  void _addUserToPromotion() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.email == null) return;
+
+    final String docId = 'google_${user.email!.replaceAll('.', '_').replaceAll('@', '_')}';
+    final firestore = FirebaseFirestore.instance;
+
+    try {
+      final offerDoc = await firestore.collection('offers').doc('first50Users').get();
+      if (!offerDoc.exists || !(offerDoc['isActive'] ?? false)) return;
+
+      final promoDoc = await firestore.collection('promotions').doc(docId).get();
+      if (promoDoc.exists) return;
+
+      final totalPromoUsers = await firestore.collection('promotions').get();
+      if (totalPromoUsers.docs.length >= (offerDoc['maxUsers'] ?? 50)) return;
+
+      await firestore.collection('promotions').doc(docId).set({
+        'joinedAt': FieldValue.serverTimestamp(),
+        'discountUsedCount': 0,
+        'totalDiscountedAmount': 0,
+      });
+
+      print("✅ Added to promotions");
+    } catch (e) {
+      print("❌ Error adding to promotions: $e");
+    }
+  }
+
+
+
+
+
   void _startTutorialFlow() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -86,6 +120,7 @@ class _HomePageState extends State<HomePage> {
       });
     } else {
       _checkLocationStatus(); // ✅ Skip tutorial, go to location
+      _addUserToPromotion();
     }
   }
 
@@ -332,8 +367,28 @@ class _HomePageState extends State<HomePage> {
 
       child: Scaffold(
         appBar: AppBar(
-          automaticallyImplyLeading: false, // Removes back button icon
+          automaticallyImplyLeading: false, // Removes default back button
           backgroundColor: const Color(0xFF4A90E2),
+          leading: IconButton(
+            icon: const Icon(Icons.account_circle, color: Colors.white),
+            onPressed: () {
+              Navigator.of(context).push(
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) => AccountScreen(),
+                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                    const begin = Offset(1.0, 0.0); // from right to left
+                    const end = Offset.zero;
+                    const curve = Curves.easeInOut;
+
+                    final tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                    final offsetAnimation = animation.drive(tween);
+
+                    return SlideTransition(position: offsetAnimation, child: child);
+                  },
+                ),
+              );
+            },
+          ),
           title: Text(
             'AllgoZ',
             style: TextStyle(
@@ -346,7 +401,7 @@ class _HomePageState extends State<HomePage> {
           centerTitle: true,
           actions: [
             IconButton(
-              key: videoIconKey, // 👈 REQUIRED for tutorial to work
+              key: videoIconKey,
               icon: const Icon(Icons.video_collection_rounded, color: Colors.white),
               onPressed: () {
                 showDialog(
@@ -359,11 +414,13 @@ class _HomePageState extends State<HomePage> {
             IconButton(
               icon: const Icon(Icons.help_outline, color: Colors.white),
               onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => ContactSupportScreen()));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => ContactSupportScreen()),
+                );
               },
             ),
           ],
-
         ),
         body: Padding(
           padding: EdgeInsets.all(width * 0.04),
@@ -393,12 +450,11 @@ class _HomePageState extends State<HomePage> {
                 ),
                 child: bannerImages.isEmpty
                     ? const Center(child: CircularProgressIndicator())
-                    :PageView.builder(
+                    : PageView.builder(
                   controller: _pageController,
                   itemCount: bannerImages.length,
                   onPageChanged: (index) => setState(() => _currentPage = index),
                   itemBuilder: (context, index) {
-
                     return ClipRRect(
                       borderRadius: BorderRadius.circular(16),
                       child: Image.network(
@@ -455,13 +511,12 @@ class _HomePageState extends State<HomePage> {
           onTap: _onItemTapped,
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.shopping_bag), label: 'Home'),
-
             BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: 'Cart'),
             BottomNavigationBarItem(icon: Icon(Icons.delivery_dining), label: 'My Order'),
-            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
           ],
         ),
       ),
+
     );
   }
 }

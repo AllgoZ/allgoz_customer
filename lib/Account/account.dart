@@ -86,94 +86,78 @@ class _AccountScreenState extends State<AccountScreen> {
     final width = MediaQuery.of(context).size.width;
     final scaleFactor = width / 390;
 
-    return WillPopScope(
-      onWillPop: () async {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomePage()));
-        return false;
-      },
-      child: Scaffold(
-        backgroundColor: Colors.grey[200],
-        appBar: AppBar(
-          backgroundColor: const Color(0xFF4A90E2),
-          title: Text('Account', style: TextStyle(fontSize: 20 * scaleFactor, color: Colors.white, fontWeight: FontWeight.bold)),
-          centerTitle: true,
-          automaticallyImplyLeading: false,
+    return Scaffold(
+      backgroundColor: Colors.grey[200],
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF4A90E2),
+        title: Text('Account', style: TextStyle(fontSize: 20 * scaleFactor, color: Colors.white, fontWeight: FontWeight.bold)),
+        centerTitle: true,
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+          onPressed: () {
+            Navigator.of(context).pop(); // Or replace if needed
+          },
         ),
-        body: ListView(
-          padding: EdgeInsets.all(16 * scaleFactor),
-          children: [
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-              child: ListTile(
-                leading: CircleAvatar(
-                  radius: 30 * scaleFactor,
-                  backgroundImage: AssetImage('assets/profile.png'),
-                ),
-                title: Text(userName ?? '', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18 * scaleFactor)),
-                subtitle: Text(userPhone ?? ''),
-                trailing: Icon(Icons.edit, color: Colors.blue),
-                onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => EditProfileScreen()));
-                },
+      ),
+      body: ListView(
+        padding: EdgeInsets.all(16 * scaleFactor),
+        children: [
+          Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            child: ListTile(
+              leading: CircleAvatar(
+                radius: 30 * scaleFactor,
+                backgroundImage: AssetImage('assets/profile.png'),
               ),
+              title: Text(userName ?? '', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18 * scaleFactor)),
+              subtitle: Text(userPhone ?? ''),
+              trailing: Icon(Icons.edit, color: Colors.blue),
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => EditProfileScreen()));
+              },
             ),
-            SizedBox(height: 20 * scaleFactor),
-            _buildSectionTitle('Orders', scaleFactor),
-            _buildAccountOption(Icons.shopping_bag, 'My Orders', () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => MyOrdersScreen()));
-            }, scaleFactor),
-            SizedBox(height: 20 * scaleFactor),
-            _buildSectionTitle('Account Settings', scaleFactor),
-            _buildAccountOption(Icons.location_on, 'Manage Addresses', () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => ManageAddressesScreen()));
-            }, scaleFactor),
-            // _buildAccountOption(Icons.payment, 'Payment Methods', () {
-            //   Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentMethodsScreen()));
-            // }, scaleFactor),
-            SizedBox(height: 20 * scaleFactor),
-            _buildSectionTitle('Help & Support', scaleFactor),
-            _buildAccountOption(Icons.help_outline, 'FAQ / Help Center', () {}, scaleFactor),
-            _buildAccountOption(Icons.support_agent, 'Contact Support', () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => ContactSupportScreen()));
-            }, scaleFactor),
-            SizedBox(height: 20 * scaleFactor),
-            _buildSectionTitle('Settings', scaleFactor),
-            _buildAccountOption(Icons.notifications, 'Notification Settings', () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => NotificationSettingsScreen()));
-            }, scaleFactor),
-            _buildAccountOption(Icons.privacy_tip, 'Privacy Settings', () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => PrivacySettingsScreen()));
-            }, scaleFactor),
-            _buildAccountOption(Icons.language, 'Language', () {}, scaleFactor),
-            _buildAccountOption(Icons.dark_mode, 'Dark Mode', () {}, scaleFactor),
-
-            // ✅ LOGOUT BUTTON
-            _buildAccountOption(Icons.logout, 'Logout', () async {
-              await FirebaseAuth.instance.signOut();
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const LoginPage()),
-                    (route) => false,
-              );
-            }, scaleFactor, isLogout: true),
-          ],
-        ),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          selectedItemColor: const Color(0xFF4A90E2),
-          unselectedItemColor: Colors.grey,
-          onTap: _onItemTapped,
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.shopping_bag), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: 'Cart'),
-            BottomNavigationBarItem(icon: Icon(Icons.delivery_dining), label: 'My Order'),
-            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-          ],
-        ),
+          ),
+          SizedBox(height: 20 * scaleFactor),
+          _buildSectionTitle('Orders', scaleFactor),
+          _buildAccountOption(Icons.shopping_bag, 'My Orders', () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => MyOrdersScreen()));
+          }, scaleFactor),
+          SizedBox(height: 20 * scaleFactor),
+          _buildSectionTitle('Account Settings', scaleFactor),
+          _buildAccountOption(Icons.location_on, 'Manage Addresses', () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => ManageAddressesScreen()));
+          }, scaleFactor),
+          SizedBox(height: 20 * scaleFactor),
+          _buildSectionTitle('Help & Support', scaleFactor),
+          _buildAccountOption(Icons.help_outline, 'FAQ / Help Center', () {}, scaleFactor),
+          _buildAccountOption(Icons.support_agent, 'Contact Support', () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => ContactSupportScreen()));
+          }, scaleFactor),
+          SizedBox(height: 20 * scaleFactor),
+          _buildSectionTitle('Settings', scaleFactor),
+          _buildAccountOption(Icons.notifications, 'Notification Settings', () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => NotificationSettingsScreen()));
+          }, scaleFactor),
+          _buildAccountOption(Icons.privacy_tip, 'Privacy Settings', () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => PrivacySettingsScreen()));
+          }, scaleFactor),
+          _buildAccountOption(Icons.language, 'Language', () {}, scaleFactor),
+          _buildAccountOption(Icons.dark_mode, 'Dark Mode', () {}, scaleFactor),
+          _buildAccountOption(Icons.logout, 'Logout', () async {
+            await FirebaseAuth.instance.signOut();
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => const LoginPage()),
+                  (route) => false,
+            );
+          }, scaleFactor, isLogout: true),
+        ],
       ),
     );
   }
+
 
   Widget _buildAccountOption(IconData icon, String title, VoidCallback onTap, double scaleFactor, {bool isLogout = false}) {
     return Card(

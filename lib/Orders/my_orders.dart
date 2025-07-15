@@ -125,7 +125,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
             BottomNavigationBarItem(icon: Icon(Icons.shopping_bag), label: 'Home'),
             BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: 'Cart'),
             BottomNavigationBarItem(icon: Icon(Icons.delivery_dining), label: 'My Order'),
-            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+            // BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
           ],
         ),
       ),
