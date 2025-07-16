@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:allgoz/services/location_picker.dart';
 
 class EditAddressScreen extends StatefulWidget {
   final String addressId;
@@ -29,6 +31,8 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
   String _addressType = 'Home';
   bool _isFetchingLocation = false;
   bool _isSavingAddress = false;
+  double? latitude;
+  double? longitude;
 
   @override
   void initState() {
@@ -76,6 +80,9 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
         _stateController.text = data['state'] ?? '';
         _pincodeController.text = data['pincode'] ?? '';
         _locationController.text = data['location'] ?? '';
+        latitude = data['latitude'];
+        longitude = data['longitude'];
+
         _addressType = data['type'] ?? 'Home';
       });
     }
@@ -139,6 +146,9 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
         "state": _stateController.text.trim(),
         "pincode": _pincodeController.text.trim(),
         "location": _locationController.text.trim(),
+        "latitude": latitude,
+        "longitude": longitude,
+
         "type": _addressType,
       };
 
@@ -198,19 +208,38 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
               SizedBox(height: 10 * scaleFactor),
 
               ElevatedButton(
-                onPressed: _isFetchingLocation ? null : _getCurrentLocation,
+                onPressed: () async {
+                  final LatLng? selected = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => LocationPickerScreen(
+                        initialLocation: latitude != null && longitude != null
+                            ? LatLng(latitude!, longitude!)
+                            : null,
+                      ),
+                    ),
+                  );
+
+                  if (selected != null) {
+                    setState(() {
+                      latitude = selected.latitude;
+                      longitude = selected.longitude;
+                      _locationController.text =
+                      'Latitude: ${latitude!.toStringAsFixed(5)}, Longitude: ${longitude!.toStringAsFixed(5)}';
+                    });
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Location updated!')),
+                    );
+                  }
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
                   padding: EdgeInsets.symmetric(vertical: 14 * scaleFactor),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8 * scaleFactor)),
                 ),
-                child: _isFetchingLocation
-                    ? SizedBox(
-                    width: 22 * scaleFactor,
-                    height: 22 * scaleFactor,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text("Get Current Location",
+                child: Text("📍 Select on Map",
                     style: TextStyle(fontSize: 16 * scaleFactor, color: Colors.white)),
               ),
 

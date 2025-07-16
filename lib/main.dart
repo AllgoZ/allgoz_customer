@@ -7,15 +7,85 @@ import 'entername.dart';
 import 'package:allgoz/Home/home.dart';
 import 'package:allgoz/Home/cards.dart';
 import 'package:allgoz/Home/storedetails.dart';
-
+import 'package:allgoz/utility/update_checker.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(); // Initialize Firebase before the app runs
   runApp(MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      UpdateChecker.checkForUpdate(context);
+    });
+  }
+
+  Future<Widget> _getStartScreen() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return const LoginPage();
+
+    final emailKey = user.email!.replaceAll('.', '_').replaceAll('@', '_');
+    final docId = 'google_$emailKey';
+
+    final doc = await FirebaseFirestore.instance
+        .collection('customers')
+        .doc(docId)
+        .get();
+
+    if (doc.exists) {
+      return const HomePage();
+    } else {
+      return const EnterNamePage();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Widget>(
+      future: _getStartScreen(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const MaterialApp(
+            home: Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            ),
+          );
+        }
+
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          home: snapshot.data,
+          onGenerateRoute: (settings) {
+            if (settings.name == '/Home/cards') {
+              final args = settings.arguments as String?;
+              return MaterialPageRoute(
+                builder: (context) =>
+                    CardsPage(categoryName: args ?? 'Default Category'),
+              );
+            } else if (settings.name == '/Home/storedetails') {
+              final args = settings.arguments as String?;
+              return MaterialPageRoute(
+                builder: (context) =>
+                    StoreDetailsPage(storeName: args ?? 'Default Store'),
+              );
+            }
+            return null;
+          },
+        );
+      },
+    );
+  }
+}
 
   Future<Widget> _getStartScreen() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -72,7 +142,7 @@ class MyApp extends StatelessWidget {
       },
     );
   }
-}
+
 
 class BackgroundWidget extends StatelessWidget {
   const BackgroundWidget({super.key});

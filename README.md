@@ -1,16 +1,14 @@
-# allgoz
+# allgoz 
 
-A new Flutter project.
+
+V 1.0.1
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- Updated account page from the bottom nagivator to the home page at the top left corner,
+- Added update available popup for new update (need to check)
+- changes the banner changing sequence time 3 seconds,
+- added Promotion first 2 delivery pay 50 50 added for first 50 customers
+- Google map api for add address and edit address is connected ,
+- 

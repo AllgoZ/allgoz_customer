@@ -2,7 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:allgoz/services/location_picker.dart';
 class NewAddressScreen extends StatefulWidget {
   @override
   _NewAddressScreenState createState() => _NewAddressScreenState();
@@ -26,6 +27,8 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
 
   String _addressType = 'Home';
   bool _setAsDefault = true;
+  double? latitude;
+  double? longitude;
 
   void _getCurrentLocation() async {
     setState(() => _isFetchingLocation = true);
@@ -188,19 +191,30 @@ class _NewAddressScreenState extends State<NewAddressScreen> {
               SizedBox(height: 8 * scaleFactor),
 
               ElevatedButton(
-                onPressed: _isFetchingLocation ? null : _getCurrentLocation,
+                onPressed: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => LocationPickerScreen()),
+                  );
+                  if (result != null && result is LatLng) {
+                    setState(() {
+                      latitude = result.latitude;
+                      longitude = result.longitude;
+                      _locationController.text = 'Latitude: ${latitude!.toStringAsFixed(5)}, Longitude: ${longitude!.toStringAsFixed(5)}';
+                    });
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Location selected successfully!')),
+                    );
+                  }
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
                   padding: EdgeInsets.symmetric(vertical: 14 * scaleFactor),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8 * scaleFactor)),
                 ),
-                child: _isFetchingLocation
-                    ? SizedBox(
-                    width: 22 * scaleFactor,
-                    height: 22 * scaleFactor,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text("Get Delivery Location",
+                child: Text("📍 Select Delivery Location",
                     style: TextStyle(fontSize: 16 * scaleFactor, color: Colors.white)),
               ),
 
