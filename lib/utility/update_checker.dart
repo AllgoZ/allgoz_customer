@@ -1,14 +1,13 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class UpdateChecker {
   static Future<void> checkForUpdate(BuildContext context) async {
     try {
       final PackageInfo packageInfo = await PackageInfo.fromPlatform();
-      final currentVersion = packageInfo.version;
+      final currentVersion = packageInfo.version.trim();
 
       final doc = await FirebaseFirestore.instance
           .collection('app_settings')
@@ -17,65 +16,83 @@ class UpdateChecker {
 
       if (!doc.exists) return;
 
-      final latestVersion = doc['latest_version'] ?? "";
-      final isRequired = doc['update_required'] ?? false;
-      final changelog = doc['changelog'] ?? "";
-      final playstoreUrl = doc['playstore_url'] ?? "";
+      final data = doc.data();
+      final latestVersion = data?['latest_version']?.toString().trim() ?? '';
+      final updateRequired = data?['update_required'] ?? false;
+      final changelog = data?['changelog'] ?? '';
+      final playStoreUrl = data?['playstore_url'] ?? '';
 
-      if (_isNewVersion(currentVersion, latestVersion)) {
-        _showCupertinoUpdateDialog(context, latestVersion, changelog, playstoreUrl, isRequired);
-      }
-    } catch (e) {
-      print("Update check failed: $e");
-    }
-  }
-
-  static bool _isNewVersion(String current, String latest) {
-    List<int> c = current.split('.').map(int.parse).toList();
-    List<int> l = latest.split('.').map(int.parse).toList();
-    for (int i = 0; i < l.length; i++) {
-      if (i >= c.length || l[i] > c[i]) return true;
-      if (l[i] < c[i]) return false;
-    }
-    return false;
-  }
-
-  static void _showCupertinoUpdateDialog(BuildContext context, String version, String changelog, String url, bool isRequired) {
-    showCupertinoDialog(
-      barrierDismissible: !isRequired,
-      context: context,
-      builder: (BuildContext context) {
-        return CupertinoAlertDialog(
-          title: Text("Update Available"),
-          content: Column(
-            children: [
-              SizedBox(height: 10),
-              Text("Please update to version $version to continue."),
-              SizedBox(height: 10),
-              Text("What's new:", style: TextStyle(fontWeight: FontWeight.bold)),
-              SizedBox(height: 5),
-              Text(changelog, style: TextStyle(fontSize: 13)),
+      // Show popup only when update is required and version is different
+      if (updateRequired && latestVersion != currentVersion) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            titlePadding: EdgeInsets.zero,
+            title: Column(
+              children: [
+                const SizedBox(height: 12),
+                Image.asset(
+                  'assets/icons/5.png',
+                  height: 70,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'New Update Available!',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("You're using version $currentVersion."),
+                const SizedBox(height: 8),
+                Text(
+                  "What's New:",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(changelog),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  if (await canLaunchUrl(Uri.parse(playStoreUrl))) {
+                    await launchUrl(
+                      Uri.parse(playStoreUrl),
+                      mode: LaunchMode.externalApplication,
+                    );
+                  }
+                },
+                child: const Text(
+                  "Update Now",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop(); // Dismiss dialog
+                },
+                child: const Text(
+                  "Update Later",
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
             ],
           ),
-          actions: <Widget>[
-            if (!isRequired)
-              CupertinoDialogAction(
-                isDefaultAction: true,
-                child: Text("Later"),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-            CupertinoDialogAction(
-              isDestructiveAction: true,
-              child: Text("Update"),
-              onPressed: () {
-                launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-              },
-            ),
-          ],
         );
-      },
-    );
+      }
+    } catch (e) {
+      print("❌ Update check failed: $e");
+    }
   }
 }

@@ -164,13 +164,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   ...cartItems.map((item) => ListTile(
                                     leading: Image.network(
                                       item['imageURL'],
-                                      width: 40 * scaleFactor,
-                                      height: 40 * scaleFactor,
+                                      width: 20 * scaleFactor,
+                                      height: 20 * scaleFactor,
                                       fit: BoxFit.cover,
                                     ),
                                     title: Text(item['name'],
                                         style: TextStyle(
-                                            fontSize: 18 * scaleFactor,
+                                            fontSize: 16 * scaleFactor,
                                             fontWeight: FontWeight.w500)),
                                     subtitle: Text(
                                         "${item['grams']}g x ${item['quantity']}",
@@ -178,7 +178,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                     trailing: Text(
                                         '₹${item['price'] * item['quantity']}',
                                         style: TextStyle(
-                                            fontSize: 18 * scaleFactor,
+                                            fontSize: 16 * scaleFactor,
                                             fontWeight: FontWeight.bold)),
                                   )),
                                 ],
@@ -194,33 +194,33 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               children: [
                                 ListTile(
                                   title: Text('Subtotal',
-                                      style: TextStyle(fontSize: 18 * scaleFactor)),
+                                      style: TextStyle(fontSize: 16 * scaleFactor, fontWeight: FontWeight.bold,)),
                                   trailing: Text('₹$totalAmount',
-                                      style: TextStyle(fontSize: 18 * scaleFactor)),
+                                      style: TextStyle(fontSize: 16 * scaleFactor)),
                                 ),
                                 ListTile(
                                   title: Text('Discount',
-                                      style: TextStyle(fontSize: 18 * scaleFactor)),
+                                      style: TextStyle(fontSize: 16 * scaleFactor, fontWeight: FontWeight.bold,)),
                                   trailing: Text('- ₹$discount',
-                                      style: TextStyle(fontSize: 18 * scaleFactor)),
+                                      style: TextStyle(fontSize: 16 * scaleFactor)),
                                 ),
                                 ListTile(
                                   title: Text('Delivery Charges',
-                                      style: TextStyle(fontSize: 18 * scaleFactor)),
+                                      style: TextStyle(fontSize: 16 * scaleFactor, fontWeight: FontWeight.bold,)),
                                   trailing: Text('₹$deliveryCharge',
-                                      style: TextStyle(fontSize: 18 * scaleFactor)),
+                                      style: TextStyle(fontSize: 16 * scaleFactor)),
                                 ),
                                 ListTile(
                                   title: Text('Packaging Fee',
-                                      style: TextStyle(fontSize: 18 * scaleFactor)),
+                                      style: TextStyle(fontSize: 16 * scaleFactor, fontWeight: FontWeight.bold,)),
                                   trailing: Text('₹$packagingFee',
-                                      style: TextStyle(fontSize: 18 * scaleFactor)),
+                                      style: TextStyle(fontSize: 16 * scaleFactor)),
                                 ),
                                 if (promotionDiscount > 0)
                                   ListTile(
                                     title: Text(
                                       'First Order Offer (${maxPromoOrders - promoUsed} left)',
-                                      style: TextStyle(fontSize: 18 * scaleFactor, color: Colors.green[800]),
+                                      style: TextStyle(fontSize: 18 * scaleFactor, color: Colors.green[800], fontWeight: FontWeight.bold,),
                                     ),
                                     trailing: Text(
                                       '- ₹${promotionDiscount.toStringAsFixed(0)}',
