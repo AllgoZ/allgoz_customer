@@ -84,8 +84,20 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   void _centerToCurrentLocation() async {
     final pos = await Geolocator.getCurrentPosition();
     final newLatLng = LatLng(pos.latitude, pos.longitude);
-    _mapController?.animateCamera(CameraUpdate.newLatLngZoom(newLatLng, 17));
-    _updateLatLng(newLatLng);
+    await _mapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(newLatLng, 17));
+    if (_mapController != null) {
+      final size = MediaQuery.of(context).size;
+      final center = await _mapController!.getLatLng(
+        ScreenCoordinate(
+          x: (size.width / 2).round(),
+          y: (size.height / 2).round(),
+        ),
+      );
+      _updateLatLng(center);
+    } else {
+      _updateLatLng(newLatLng);
+    }
   }
 
   void _toggleMapType() {
