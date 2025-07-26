@@ -1,16 +1,16 @@
-# allgoz
+# Allgoz Customer App
 
-A new Flutter project.
+Allgoz is a Flutter application that lets customers browse stores, place orders and manage their account. The app relies on Firebase for authentication and data storage.
 
-## Getting Started
+## Requirements
 
-This project is a starting point for a Flutter application.
+- **Flutter**: version 3.22.x (stable channel)
+- **Dart**: 3.6 or later (included with Flutter)
 
-A few resources to get you started if this is your first Flutter project:
+## Setup
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+1. Install the required Flutter version and set up a device or emulator.
+2. Run `flutter pub get` to install dependencies.
+3. Start the application with `flutter run`.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+For more information on Flutter installation and usage, visit [flutter.dev](https://flutter.dev).
