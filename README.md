@@ -1,7 +1,7 @@
 # allgoz 
 
 
-V 1.0.1
+V 1.0.2+29
 
 ## Getting Started
 
@@ -11,6 +11,7 @@ V 1.0.1
 - changes the banner changing sequence time 3 seconds,
 - added Promotion first 2 delivery pay 50 50 added for first 50 customers
 - Google map api for add address and edit address is connected
+- added FCM Message with firebase, update checker
 - used libraries this version
 - firebase_messaging: ^15.2.9
 - flutter_local_notifications: ^19.3.1

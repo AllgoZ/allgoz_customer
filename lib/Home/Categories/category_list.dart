@@ -121,6 +121,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
           'available': data['available'] ?? true,
           'description': data['description'] ?? '',
           'brand': data['brand'] ?? '',
+          'quantityInKg' : data['quantityInKg'] ??'',
 
         };
       }).toList();
@@ -344,6 +345,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
           'available': data['available'] ?? true,
           'description': data['description'] ?? '',
           'brand': data['brand'] ?? '',
+          'quantityInKg' : data['quantityInKg'] ??'',
         };
       }).toList();
 
@@ -465,7 +467,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
           /// 🔹 Left Sidebar
           Container(
-            width: screenWidth * 0.25,
+            width: screenWidth * 0.22,
             color: const Color(0xFFE3F2FD),
             child: ListView.builder(
               itemCount: categories.length,
@@ -481,7 +483,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
                     color: selectedType == categories[index]['name']
                         ? Colors.blue.shade100
                         : Colors.transparent,
-                    padding: EdgeInsets.all(8 * scaleFactor),
+                    padding: EdgeInsets.all(4 * scaleFactor),
                     child: Column(
                       children: [
                         Image.network(categories[index]['image'], height: 50 * scaleFactor),
@@ -489,7 +491,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
                         Text(
                           categories[index]['name'],
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14 * scaleFactor),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13 * scaleFactor),
                         ),
                       ],
                     ),
@@ -531,226 +533,257 @@ class _CategoryScreenState extends State<CategoryScreen> {
                       childAspectRatio: 0.46,
                     ),
                     itemCount: filteredProducts.length,
-                    itemBuilder: (context, index) {
-                      final product = filteredProducts[index];
-                      final productId = product['id'];
-                      final cartQuantity = cartItems[productId] ?? 0;
-                      final isAvailable = product['available'] ?? true;
+                      itemBuilder: (context, index) {
+                        final product = filteredProducts[index];
+                        final productId = product['id'];
+                        final cartQuantity = cartItems[productId] ?? 0;
+                        final isAvailable = product['available'] ?? true;
+// Calculate base quantity and price
+                        final int baseQuantity = int.tryParse(product['quantity'].toString()) ?? 100;
+                        final String unit = product['unit'] ?? 'Gram';
+                        final double basePrice = (product['price'] as num).toDouble();
+                        final double totalPrice = cartQuantity > 0 ? basePrice * cartQuantity : basePrice;
+                        final int totalQuantity = cartQuantity > 0 ? baseQuantity * cartQuantity : baseQuantity;
+                        final double quantityInKg = unit == "Kg" ? totalQuantity.toDouble() : totalQuantity / 1000;
+                        final String quantityDisplay = unit == "Gram"
+                            ? "$totalQuantity Gram"
+                            : unit == "Kg"
+                            ? "${quantityInKg.toStringAsFixed(2)} Kg"
+                            : "$totalQuantity $unit";
 
-                      return GestureDetector(
-                        onTap: isAvailable ? () => _showBottomSheet(context, product) : null,
-                        child: Stack(
-                          children: [
-                            Opacity(
-                              opacity: isAvailable ? 1.0 : 0.5,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
+                        return GestureDetector(
+                          onTap: isAvailable ? () => _showBottomSheet(context, product) : null,
+                          child: Stack(
+                            children: [
+                              Opacity(
+                                opacity: isAvailable ? 1.0 : 0.5,
+                                child: Material(
+                                  elevation: 6,
                                   borderRadius: BorderRadius.circular(15),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black12,
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 6),
+                                  shadowColor: Colors.black.withOpacity(0.2),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(15),
                                     ),
-                                  ],
-                                ),
-                                padding: EdgeInsets.all(screenWidth * 0.025),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    // Product image + discount
-                                    Stack(
+                                    padding: EdgeInsets.all(screenWidth * 0.025),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.center,
                                       children: [
-                                        ClipRRect(
-                                          borderRadius: const BorderRadius.vertical(
-                                              top: Radius.circular(15)),
-                                          child: Image.network(
-                                            product['imageURL'],
-                                            height: screenHeight * 0.12,
-                                            width: double.infinity,
-                                            fit: BoxFit.cover,
-                                          ),
-                                        ),
-                                        if (product['discount'] > 0)
-                                          Positioned(
-                                            top: 5,
-                                            left: 5,
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                  horizontal: 8, vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: Colors.red,
-                                                borderRadius: BorderRadius.circular(8),
-                                              ),
-                                              child: Text(
-                                                "${product['discount']}% Off",
-                                                style: TextStyle(
-                                                    color: Colors.white,
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 12 * scaleFactor),
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                    SizedBox(height: 6 * scaleFactor),
-
-                                    // Name
-                                    Text(
-                                      product['name'],
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14 * scaleFactor),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    SizedBox(height: 4 * scaleFactor),
-
-                                    // Quantity
-                                    Text(
-                                      "${product['quantity']} ${product['unit']}",
-                                      style: TextStyle(
-                                          fontSize: 14 * scaleFactor,
-                                          color: Colors.grey,
-                                          fontWeight: FontWeight.bold),
-                                    ),
-                                    SizedBox(height: 4 * scaleFactor),
-
-                                    // Price
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          "₹${product['price']}",
-                                          style: TextStyle(
-                                              color: Colors.green,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 14 * scaleFactor),
-                                        ),
-                                        SizedBox(width: 5),
-                                        if (product['originalPrice'] != null)
-                                          Text(
-                                            "₹${product['originalPrice']}",
-                                            style: TextStyle(
-                                              decoration: TextDecoration.lineThrough,
-                                              color: Colors.grey,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 12 * scaleFactor,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                    SizedBox(height: 6 * scaleFactor),
-
-                                    // Add/Update Cart
-                                    isAvailable
-                                        ? cartQuantity == 0
-                                        ? ElevatedButton(
-                                      onPressed: () {
-                                        int baseGrams = (product['unit'] == "Kg")
-                                            ? 1000
-                                            : int.tryParse(product['quantity'].toString()) ?? 100;
-                                        _updateCart(productId, product, 1, baseGrams);
-                                      },
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(9),
-                                          side: const BorderSide(color: Colors.green),
-                                        ),
-                                        minimumSize: Size(screenWidth * 0.4, screenHeight * 0.047),
-                                      ),
-                                      child: Text("ADD",
-                                          style: TextStyle(
-                                              color: Colors.green,
-                                              fontSize: 15 * scaleFactor,
-                                              fontWeight: FontWeight.bold)),
-                                    )
-                                        : Container(
-                                      height: screenHeight * 0.047,
-                                      width: screenWidth * 0.38,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(9),
-                                        border: Border.all(color: Colors.green, width: 2),
-                                      ),
-                                      padding: EdgeInsets.symmetric(
-                                          horizontal: 4 * scaleFactor),
-                                      child: FittedBox(
-                                        fit: BoxFit.scaleDown,
-                                        child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                        // Product image + discount
+                                        Stack(
                                           children: [
-                                            IconButton(
-                                              icon: const Icon(Icons.remove, color: Colors.green),
-                                              iconSize: 25 * scaleFactor,
-                                              onPressed: () {
-                                                int baseGrams = (product['unit'] == "Kg")
-                                                    ? 1000
-                                                    : int.tryParse(product['quantity'].toString()) ?? 100;
-                                                if (cartQuantity > 1) {
-                                                  _updateCart(productId, product, cartQuantity - 1, baseGrams);
-                                                } else {
-                                                  _removeFromCart(product);
-                                                }
-                                              },
-                                            ),
-                                            Text(
-                                              "$cartQuantity",
-                                              style: TextStyle(
-                                                fontSize: 25 * scaleFactor,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.green,
+                                            ClipRRect(
+                                              borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                                              child: Image.network(
+                                                product['imageURL'],
+                                                height: screenHeight * 0.12,
+                                                width: double.infinity,
+                                                fit: BoxFit.cover,
                                               ),
                                             ),
-                                            IconButton(
-                                              icon: const Icon(Icons.add, color: Colors.green),
-                                              iconSize: 25 * scaleFactor,
-                                              onPressed: () {
-                                                int baseGrams = (product['unit'] == "Kg")
-                                                    ? 1000
-                                                    : int.tryParse(product['quantity'].toString()) ?? 100;
-                                                _updateCart(productId, product, cartQuantity + 1, baseGrams);
-                                              },
-                                            ),
+                                            if (product['discount'] > 0)
+                                              Positioned(
+                                                top: 5,
+                                                left: 5,
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.red,
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                  child: Text(
+                                                    "${product['discount']}% Off",
+                                                    style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 12 * scaleFactor,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
                                           ],
                                         ),
-                                      ),
-                                    )
-                                        : const SizedBox(), // hide cart button if unavailable
-                                  ],
+                                        SizedBox(height: 6 * scaleFactor),
+
+                                        // Name
+                                        Text(
+                                          product['name'],
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13 * scaleFactor,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        SizedBox(height: 4 * scaleFactor),
+
+                                        // Quantity
+                                        Text(
+                                          quantityDisplay,
+                                          style: TextStyle(
+                                            fontSize: 14 * scaleFactor,
+                                            color: Colors.grey,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+
+                                        SizedBox(height: 4 * scaleFactor),
+
+                                        // quantityInKg (visual kg format)
+                                        if (product['quantityInKg'] != null && product['quantityInKg'].toString().trim().isNotEmpty)
+                                          Text(
+                                            product['quantityInKg'],
+                                            style: TextStyle(
+                                              color: Colors.grey,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14 * scaleFactor,
+                                            ),
+                                          ),
+
+                                        SizedBox(height: 4 * scaleFactor),
+
+                                        // Price
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              "₹${totalPrice.toStringAsFixed(0)}",
+                                              style: TextStyle(
+                                                color: Colors.green,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14 * scaleFactor,
+                                              ),
+                                            ),
+
+                                            SizedBox(width: 5),
+                                            if (product['originalPrice'] != null)
+                                              Text(
+                                                "₹${product['originalPrice']}",
+                                                style: TextStyle(
+                                                  decoration: TextDecoration.lineThrough,
+                                                  color: Colors.grey,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12 * scaleFactor,
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+
+                                        Spacer(), // 🔻 Pushes ADD/UPDATE button to bottom
+
+                                        // Add/Update Cart
+                                        isAvailable
+                                            ? cartQuantity == 0
+                                            ? ElevatedButton(
+                                          onPressed: () {
+                                            int baseGrams = (product['unit'] == "Kg")
+                                                ? 1000
+                                                : int.tryParse(product['quantity'].toString()) ?? 100;
+                                            _updateCart(productId, product, 1, baseGrams);
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.white,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(9),
+                                              side: const BorderSide(color: Colors.green),
+                                            ),
+                                            minimumSize: Size(screenWidth * 0.4, screenHeight * 0.047),
+                                          ),
+                                          child: Text(
+                                            "ADD",
+                                            style: TextStyle(
+                                              color: Colors.green,
+                                              fontSize: 15 * scaleFactor,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        )
+                                            : Container(
+                                          height: screenHeight * 0.047,
+                                          width: screenWidth * 0.38,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(9),
+                                            border: Border.all(color: Colors.green, width: 2),
+                                          ),
+                                          padding: EdgeInsets.symmetric(horizontal: 4 * scaleFactor),
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                              children: [
+                                                IconButton(
+                                                  icon: const Icon(Icons.remove, color: Colors.green),
+                                                  iconSize: 25 * scaleFactor,
+                                                  onPressed: () {
+                                                    int baseGrams = (product['unit'] == "Kg")
+                                                        ? 1000
+                                                        : int.tryParse(product['quantity'].toString()) ?? 100;
+                                                    if (cartQuantity > 1) {
+                                                      _updateCart(productId, product, cartQuantity - 1, baseGrams);
+                                                    } else {
+                                                      _removeFromCart(product);
+                                                    }
+                                                  },
+                                                ),
+                                                Text(
+                                                  "$cartQuantity",
+                                                  style: TextStyle(
+                                                    fontSize: 25 * scaleFactor,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.green,
+                                                  ),
+                                                ),
+                                                IconButton(
+                                                  icon: const Icon(Icons.add, color: Colors.green),
+                                                  iconSize: 25 * scaleFactor,
+                                                  onPressed: () {
+                                                    int baseGrams = (product['unit'] == "Kg")
+                                                        ? 1000
+                                                        : int.tryParse(product['quantity'].toString()) ?? 100;
+                                                    _updateCart(productId, product, cartQuantity + 1, baseGrams);
+                                                  },
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        )
+                                            : const SizedBox(),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                            if (!isAvailable)
-                              Positioned(
-                                top: 10,
-                                left: -30,
-                                child: Transform.rotate(
-                                  angle: -0.785398,
-                                  child: Container(
-                                    width: 120,
-                                    padding: const EdgeInsets.symmetric(vertical: 4),
-                                    color: Colors.grey,
-                                    child: Center(
-                                      child: Text(
-                                        "OUT OF STOCK",
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 10 * scaleFactor,
+                              if (!isAvailable)
+                                Positioned(
+                                  top: 10,
+                                  left: -30,
+                                  child: Transform.rotate(
+                                    angle: -0.785398,
+                                    child: Container(
+                                      width: 120,
+                                      padding: const EdgeInsets.symmetric(vertical: 4),
+                                      color: Colors.grey,
+                                      child: Center(
+                                        child: Text(
+                                          "OUT OF STOCK",
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 10 * scaleFactor,
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ),
                                 ),
-                              ),
-                          ],
-                        ),
-                      );
-                    },
+                            ],
+                          ),
+                        );
+                      }
+
                   ),
                 ),
               ],
