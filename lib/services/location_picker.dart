@@ -58,7 +58,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       final pos = await Geolocator.getCurrentPosition();
       _selectedLatLng = LatLng(pos.latitude, pos.longitude);
       _latLngText =
-      "Latitude: ${pos.latitude.toStringAsFixed(5)}, Longitude: ${pos.longitude.toStringAsFixed(5)}";
+          "Latitude: ${pos.latitude.toStringAsFixed(5)}, Longitude: ${pos.longitude.toStringAsFixed(5)}";
       setState(() => _isLoading = false);
     } catch (e) {
       _selectedLatLng = const LatLng(10.3851, 77.7555);
