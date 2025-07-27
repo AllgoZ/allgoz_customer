@@ -39,10 +39,7 @@ class _HomePageState extends State<HomePage> {
   loc.Location location = loc.Location();
   List<Map<String, dynamic>> categories = [];
   final TextEditingController _searchController = TextEditingController();
-// <<<<<<< codex/add-product-search-functionality
-//   final FocusNode _searchFocusNode = FocusNode();
-// =======
-// >>>>>>> v1.0.2
+  final FocusNode _searchFocusNode = FocusNode();
   List<Map<String, dynamic>> allProducts = [];
   List<Map<String, dynamic>> searchResults = [];
   String? userCustomerId;
@@ -84,10 +81,7 @@ class _HomePageState extends State<HomePage> {
     _pageController.dispose();
     _bannerTimer?.cancel();
     _searchController.dispose();
-// <<<<<<< codex/add-product-search-functionality
-//     _searchFocusNode.dispose();
-// =======
-// >>>>>>> v1.0.2
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -376,7 +370,7 @@ class _HomePageState extends State<HomePage> {
     if (user != null && user.email != null) {
       setState(() {
         userCustomerId =
-            'google_${user.email!.replaceAll('.', '_').replaceAll('@', '_')}';
+        'google_${user.email!.replaceAll('.', '_').replaceAll('@', '_')}';
       });
       _fetchCart();
     }
@@ -407,7 +401,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _fetchAllProducts() async {
     try {
       QuerySnapshot snapshot =
-          await FirebaseFirestore.instance.collectionGroup('products').get();
+      await FirebaseFirestore.instance.collectionGroup('products').get();
       setState(() {
         allProducts = snapshot.docs.map((doc) {
           final data = doc.data() as Map<String, dynamic>;
@@ -437,9 +431,9 @@ class _HomePageState extends State<HomePage> {
       searchQuery = query;
       searchResults = allProducts
           .where((p) => p['name']
-              .toString()
-              .toLowerCase()
-              .contains(query.toLowerCase()))
+          .toString()
+          .toLowerCase()
+          .contains(query.toLowerCase()))
           .toList();
     });
   }
@@ -516,12 +510,9 @@ class _HomePageState extends State<HomePage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final scaleFactor = screenWidth / 390;
 
-// <<<<<<< codex/add-product-search-functionality
-//     // Hide keyboard when opening the bottom sheet
-//     _searchFocusNode.unfocus();
+    // Hide keyboard when opening the bottom sheet
+    _searchFocusNode.unfocus();
 
-// =======
-// >>>>>>> v1.0.2
     showModalBottomSheet(
       context: context,
       shape: RoundedRectangleBorder(
@@ -585,7 +576,7 @@ class _HomePageState extends State<HomePage> {
                                       color: Colors.blue)),
                             ),
                           if ((product['brand'] != null &&
-                                  product['brand'].toString().isNotEmpty) ||
+                              product['brand'].toString().isNotEmpty) ||
                               (product['description'] != null &&
                                   product['description'].toString().isNotEmpty))
                             Container(
@@ -595,7 +586,7 @@ class _HomePageState extends State<HomePage> {
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF6F8FA),
                                 borderRadius:
-                                    BorderRadius.circular(16 * scaleFactor),
+                                BorderRadius.circular(16 * scaleFactor),
                                 boxShadow: const [
                                   BoxShadow(
                                     color: Colors.black12,
@@ -644,25 +635,25 @@ class _HomePageState extends State<HomePage> {
                                             .split('•')
                                             .where((line) => line.trim().isNotEmpty)
                                             .map((point) => Padding(
-                                                  padding: const EdgeInsets.symmetric(vertical: 4),
-                                                  child: Row(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    children: [
-                                                      const Text("• ",
-                                                          style: TextStyle(
-                                                              fontSize: 14,
-                                                              color: Colors.black)),
-                                                      Expanded(
-                                                        child: Text(
-                                                          point.trim(),
-                                                          style: const TextStyle(
-                                                              fontSize: 14,
-                                                              color: Colors.black),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                )),
+                                          padding: const EdgeInsets.symmetric(vertical: 4),
+                                          child: Row(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              const Text("• ",
+                                                  style: TextStyle(
+                                                      fontSize: 14,
+                                                      color: Colors.black)),
+                                              Expanded(
+                                                child: Text(
+                                                  point.trim(),
+                                                  style: const TextStyle(
+                                                      fontSize: 14,
+                                                      color: Colors.black),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        )),
                                       ],
                                     ),
                                 ],
@@ -706,80 +697,80 @@ class _HomePageState extends State<HomePage> {
                       Expanded(
                         child: totalQuantity == 0
                             ? ElevatedButton(
+                          onPressed: () {
+                            setModalState(() {
+                              product['cartQuantity'] = 1;
+                              _updateCart(
+                                  product['id'], product, 1, baseGrams);
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            shape: RoundedRectangleBorder(
+                              borderRadius:
+                              BorderRadius.circular(9 * scaleFactor),
+                            ),
+                            minimumSize:
+                            Size(double.infinity, 48 * scaleFactor),
+                          ),
+                          child: Text("Add to Cart",
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18 * scaleFactor)),
+                        )
+                            : Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius:
+                            BorderRadius.circular(9 * scaleFactor),
+                            border:
+                            Border.all(color: Colors.green, width: 2),
+                          ),
+                          child: Row(
+                            mainAxisAlignment:
+                            MainAxisAlignment.spaceEvenly,
+                            children: [
+                              IconButton(
+                                icon: Icon(Icons.remove,
+                                    color: Colors.green,
+                                    size: 18 * scaleFactor),
                                 onPressed: () {
                                   setModalState(() {
-                                    product['cartQuantity'] = 1;
-                                    _updateCart(
-                                        product['id'], product, 1, baseGrams);
+                                    if (totalQuantity > 1) {
+                                      _updateCart(
+                                          product['id'],
+                                          product,
+                                          totalQuantity - 1,
+                                          baseGrams);
+                                    } else {
+                                      _removeFromCart(product);
+                                    }
                                   });
                                 },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius.circular(9 * scaleFactor),
-                                  ),
-                                  minimumSize:
-                                      Size(double.infinity, 48 * scaleFactor),
-                                ),
-                                child: Text("Add to Cart",
-                                    style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 18 * scaleFactor)),
-                              )
-                            : Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius:
-                                      BorderRadius.circular(9 * scaleFactor),
-                                  border:
-                                      Border.all(color: Colors.green, width: 2),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceEvenly,
-                                  children: [
-                                    IconButton(
-                                      icon: Icon(Icons.remove,
-                                          color: Colors.green,
-                                          size: 18 * scaleFactor),
-                                      onPressed: () {
-                                        setModalState(() {
-                                          if (totalQuantity > 1) {
-                                            _updateCart(
-                                                product['id'],
-                                                product,
-                                                totalQuantity - 1,
-                                                baseGrams);
-                                          } else {
-                                            _removeFromCart(product);
-                                          }
-                                        });
-                                      },
-                                    ),
-                                    Text("$totalQuantity",
-                                        style: TextStyle(
-                                            fontSize: 18 * scaleFactor,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.green)),
-                                    IconButton(
-                                      icon: Icon(Icons.add,
-                                          color: Colors.green,
-                                          size: 20 * scaleFactor),
-                                      onPressed: () {
-                                        setModalState(() {
-                                          _updateCart(
-                                              product['id'],
-                                              product,
-                                              totalQuantity + 1,
-                                              baseGrams);
-                                        });
-                                      },
-                                    ),
-                                  ],
-                                ),
                               ),
+                              Text("$totalQuantity",
+                                  style: TextStyle(
+                                      fontSize: 18 * scaleFactor,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green)),
+                              IconButton(
+                                icon: Icon(Icons.add,
+                                    color: Colors.green,
+                                    size: 20 * scaleFactor),
+                                onPressed: () {
+                                  setModalState(() {
+                                    _updateCart(
+                                        product['id'],
+                                        product,
+                                        totalQuantity + 1,
+                                        baseGrams);
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -885,10 +876,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 child: TextField(
                   controller: _searchController,
-// <<<<<<< codex/add-product-search-functionality
-//                   focusNode: _searchFocusNode,
-// =======
-// >>>>>>> v1.0.2
+                  focusNode: _searchFocusNode,
                   onChanged: _performSearch,
                   decoration: const InputDecoration(
                       hintText: 'Search...',
@@ -912,26 +900,26 @@ class _HomePageState extends State<HomePage> {
                   child: bannerImages.isEmpty
                       ? const Center(child: CircularProgressIndicator())
                       : PageView.builder(
-                          controller: _pageController,
-                          itemCount: bannerImages.length,
-                          onPageChanged: (index) => setState(() => _currentPage = index),
-                          itemBuilder: (context, index) {
-                            return ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
-                              child: Image.network(
-                                bannerImages[index],
-                                fit: BoxFit.cover,
-                              ),
-                            );
-                          },
+                    controller: _pageController,
+                    itemCount: bannerImages.length,
+                    onPageChanged: (index) => setState(() => _currentPage = index),
+                    itemBuilder: (context, index) {
+                      return ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.network(
+                          bannerImages[index],
+                          fit: BoxFit.cover,
                         ),
+                      );
+                    },
+                  ),
                 ),
                 SizedBox(height: height * 0.01),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: List.generate(
                     bannerImages.length,
-                    (index) => Container(
+                        (index) => Container(
                       margin: const EdgeInsets.symmetric(horizontal: 4),
                       width: 8,
                       height: 8,
@@ -947,62 +935,62 @@ class _HomePageState extends State<HomePage> {
               Expanded(
                 child: searchQuery.isNotEmpty
                     ? GridView.builder(
-                        itemCount: searchResults.length,
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: width * 0.03,
-                          mainAxisSpacing: width * 0.03,
-                          childAspectRatio: 0.7,
-                        ),
-                        itemBuilder: (context, index) {
-                          final product = searchResults[index];
-                          final productId = product['id'];
-                          final cartQuantity = cartItems[productId] ?? 0;
-                          final isAvailable = product['available'] ?? true;
-                          final int baseQuantity =
-                              int.tryParse(product['quantity'].toString()) ?? 1;
-                          return SearchProductCard(
-                            product: product,
-                            cartQuantity: cartQuantity,
-                            onAdd: () {
-                              int baseGrams =
-                                  (product['unit'] == "Kg") ? 1000 : baseQuantity;
-                              _updateCart(
-                                  productId, product, cartQuantity + 1, baseGrams);
-                            },
-                            onRemove: () {
-                              int baseGrams =
-                                  (product['unit'] == "Kg") ? 1000 : baseQuantity;
-                              if (cartQuantity > 1) {
-                                _updateCart(productId, product,
-                                    cartQuantity - 1, baseGrams);
-                              } else {
-                                _removeFromCart(product);
-                              }
-                            },
-                            onTap: isAvailable
-                                ? () => _showBottomSheet(context, product)
-                                : null,
-                          );
-                        },
-                      )
+                  itemCount: searchResults.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: width * 0.03,
+                    mainAxisSpacing: width * 0.03,
+                    childAspectRatio: 0.64,
+                  ),
+                  itemBuilder: (context, index) {
+                    final product = searchResults[index];
+                    final productId = product['id'];
+                    final cartQuantity = cartItems[productId] ?? 0;
+                    final isAvailable = product['available'] ?? true;
+                    final int baseQuantity =
+                        int.tryParse(product['quantity'].toString()) ?? 1;
+                    return SearchProductCard(
+                      product: product,
+                      cartQuantity: cartQuantity,
+                      onAdd: () {
+                        int baseGrams =
+                        (product['unit'] == "Kg") ? 1000 : baseQuantity;
+                        _updateCart(
+                            productId, product, cartQuantity + 1, baseGrams);
+                      },
+                      onRemove: () {
+                        int baseGrams =
+                        (product['unit'] == "Kg") ? 1000 : baseQuantity;
+                        if (cartQuantity > 1) {
+                          _updateCart(productId, product,
+                              cartQuantity - 1, baseGrams);
+                        } else {
+                          _removeFromCart(product);
+                        }
+                      },
+                      onTap: isAvailable
+                          ? () => _showBottomSheet(context, product)
+                          : null,
+                    );
+                  },
+                )
                     : GridView.builder(
-                        itemCount: categories.length,
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: width * 0.03,
-                          mainAxisSpacing: width * 0.03,
-                          childAspectRatio: 1,
-                        ),
-                        itemBuilder: (context, index) {
-                          return _buildCategoryCard(
-                            categories[index]['name'],
-                            categories[index]['image'],
-                            categories[index]['id'],
-                            context,
-                          );
-                        },
-                      ),
+                  itemCount: categories.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: width * 0.03,
+                    mainAxisSpacing: width * 0.03,
+                    childAspectRatio: 1,
+                  ),
+                  itemBuilder: (context, index) {
+                    return _buildCategoryCard(
+                      categories[index]['name'],
+                      categories[index]['image'],
+                      categories[index]['id'],
+                      context,
+                    );
+                  },
+                ),
               ),
             ],
           ),
