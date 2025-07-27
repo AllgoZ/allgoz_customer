@@ -39,6 +39,10 @@ class _HomePageState extends State<HomePage> {
   loc.Location location = loc.Location();
   List<Map<String, dynamic>> categories = [];
   final TextEditingController _searchController = TextEditingController();
+// <<<<<<< codex/add-product-search-functionality
+//   final FocusNode _searchFocusNode = FocusNode();
+// =======
+// >>>>>>> v1.0.2
   List<Map<String, dynamic>> allProducts = [];
   List<Map<String, dynamic>> searchResults = [];
   String? userCustomerId;
@@ -80,6 +84,10 @@ class _HomePageState extends State<HomePage> {
     _pageController.dispose();
     _bannerTimer?.cancel();
     _searchController.dispose();
+// <<<<<<< codex/add-product-search-functionality
+//     _searchFocusNode.dispose();
+// =======
+// >>>>>>> v1.0.2
     super.dispose();
   }
 
@@ -508,6 +516,12 @@ class _HomePageState extends State<HomePage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final scaleFactor = screenWidth / 390;
 
+// <<<<<<< codex/add-product-search-functionality
+//     // Hide keyboard when opening the bottom sheet
+//     _searchFocusNode.unfocus();
+
+// =======
+// >>>>>>> v1.0.2
     showModalBottomSheet(
       context: context,
       shape: RoundedRectangleBorder(
@@ -785,6 +799,16 @@ class _HomePageState extends State<HomePage> {
 
     return WillPopScope(
       onWillPop: () async {
+        // If searching or the search field has focus, clear search instead of exiting
+        if (searchQuery.isNotEmpty || _searchFocusNode.hasFocus) {
+          setState(() {
+            searchQuery = '';
+            _searchController.clear();
+          });
+          _searchFocusNode.unfocus();
+          return false;
+        }
+
         SystemNavigator.pop();
         return false; // ✅ must return a bool
       },
@@ -861,6 +885,10 @@ class _HomePageState extends State<HomePage> {
                 ),
                 child: TextField(
                   controller: _searchController,
+// <<<<<<< codex/add-product-search-functionality
+//                   focusNode: _searchFocusNode,
+// =======
+// >>>>>>> v1.0.2
                   onChanged: _performSearch,
                   decoration: const InputDecoration(
                       hintText: 'Search...',
