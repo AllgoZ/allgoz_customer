@@ -27,16 +27,16 @@ class SearchProductCard extends StatelessWidget {
     final String unit = product['unit'] ?? 'Gram';
     final double basePrice = (product['price'] as num).toDouble();
     final double totalPrice =
-        cartQuantity > 0 ? basePrice * cartQuantity : basePrice;
+    cartQuantity > 0 ? basePrice * cartQuantity : basePrice;
     final int totalQuantity =
-        cartQuantity > 0 ? baseQuantity * cartQuantity : baseQuantity;
+    cartQuantity > 0 ? baseQuantity * cartQuantity : baseQuantity;
     final double quantityInKg =
-        unit == "Kg" ? totalQuantity.toDouble() : totalQuantity / 1000;
+    unit == "Kg" ? totalQuantity.toDouble() : totalQuantity / 1000;
     final String quantityDisplay = unit == "Gram"
         ? "$totalQuantity Gram"
         : unit == "Kg"
-            ? "${quantityInKg.toStringAsFixed(2)} Kg"
-            : "$totalQuantity $unit";
+        ? "${quantityInKg.toStringAsFixed(2)} Kg"
+        : "$totalQuantity $unit";
 
     return GestureDetector(
       onTap: isAvailable ? onTap : null,
@@ -61,7 +61,7 @@ class SearchProductCard extends StatelessWidget {
                       children: [
                         ClipRRect(
                           borderRadius:
-                              const BorderRadius.vertical(top: Radius.circular(15)),
+                          const BorderRadius.vertical(top: Radius.circular(15)),
                           child: Image.network(
                             product['imageURL'],
                             height: screenHeight * 0.1,
@@ -98,7 +98,7 @@ class SearchProductCard extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 12 * scaleFactor,
+                        fontSize: 14 * scaleFactor,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -107,7 +107,7 @@ class SearchProductCard extends StatelessWidget {
                     Text(
                       quantityDisplay,
                       style: TextStyle(
-                        fontSize: 12 * scaleFactor,
+                        fontSize: 14 * scaleFactor,
                         color: Colors.grey,
                         fontWeight: FontWeight.bold,
                       ),
@@ -135,62 +135,65 @@ class SearchProductCard extends StatelessWidget {
                     const Spacer(),
                     isAvailable
                         ? cartQuantity == 0
-                              ? ElevatedButton(
-                                  onPressed: onAdd,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(9),
-                                      side: const BorderSide(color: Colors.green),
-                                    ),
-                                    minimumSize: Size(screenWidth * 0.4, 36),
-                                  ),
-                                  child: Text(
-                                    "ADD",
-                                    style: TextStyle(
-                                      color: Colors.green,
-                                      fontSize: 14 * scaleFactor,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                )
-                            : Container(
-                                height: 36,
-                                width: screenWidth * 0.38,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(9),
-                                  border: Border.all(color: Colors.green, width: 2),
-                                ),
-                                padding:
-                                    EdgeInsets.symmetric(horizontal: 4 * scaleFactor),
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                    children: [
-                                      IconButton(
-                                        icon: const Icon(Icons.remove, color: Colors.green),
-                                        iconSize: 22 * scaleFactor,
-                                        onPressed: onRemove,
-                                      ),
-                                      Text(
-                                        "$cartQuantity",
-                                        style: TextStyle(
-                                          fontSize: 20 * scaleFactor,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.green,
-                                        ),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.add, color: Colors.green),
-                                        iconSize: 22 * scaleFactor,
-                                        onPressed: onAdd,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              )
+                        ? ElevatedButton(
+                      onPressed: onAdd,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(9),
+                          side: const BorderSide(color: Colors.green),
+                        ),
+                        minimumSize: Size(screenWidth * 0.4, 36),
+                      ),
+                      child: Text(
+                        "ADD",
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontSize: 14 * scaleFactor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    )
+                        : Container(
+                      height: 36,
+                      width: screenWidth * 0.38,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(9),
+                        border: Border.all(color: Colors.green, width: 2),
+                      ),
+                      padding:
+                      EdgeInsets.symmetric(horizontal: 4 * scaleFactor),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center, // center the row content
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.remove, color: Colors.green),
+                              iconSize: 30 * scaleFactor,
+                              onPressed: onRemove,
+                            ),
+                            SizedBox(width: 20 * scaleFactor), // 👈 adjust spacing manually
+                            Text(
+                              "$cartQuantity",
+                              style: TextStyle(
+                                fontSize: 30 * scaleFactor,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green,
+                              ),
+                            ),
+                            SizedBox(width: 20 * scaleFactor), // 👈 adjust spacing manually
+                            IconButton(
+                              icon: const Icon(Icons.add, color: Colors.green),
+                              iconSize: 30 * scaleFactor,
+                              onPressed: onAdd,
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    )
                         : const SizedBox(),
                   ],
                 ),
@@ -225,4 +228,3 @@ class SearchProductCard extends StatelessWidget {
     );
   }
 }
-
