@@ -869,49 +869,53 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               SizedBox(height: height * 0.02),
-              Container(
-                height: height * 0.23,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0xFFB0B1B4), width: 2),
-                  color: Colors.grey[300],
-                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4))],
+              if (searchQuery.isEmpty) ...[
+                Container(
+                  height: height * 0.23,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFFB0B1B4), width: 2),
+                    color: Colors.grey[300],
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4))
+                    ],
+                  ),
+                  child: bannerImages.isEmpty
+                      ? const Center(child: CircularProgressIndicator())
+                      : PageView.builder(
+                          controller: _pageController,
+                          itemCount: bannerImages.length,
+                          onPageChanged: (index) => setState(() => _currentPage = index),
+                          itemBuilder: (context, index) {
+                            return ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: Image.network(
+                                bannerImages[index],
+                                fit: BoxFit.cover,
+                              ),
+                            );
+                          },
+                        ),
                 ),
-                child: bannerImages.isEmpty
-                    ? const Center(child: CircularProgressIndicator())
-                    : PageView.builder(
-                  controller: _pageController,
-                  itemCount: bannerImages.length,
-                  onPageChanged: (index) => setState(() => _currentPage = index),
-                  itemBuilder: (context, index) {
-                    return ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.network(
-                        bannerImages[index],
-                        fit: BoxFit.cover,
+                SizedBox(height: height * 0.01),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    bannerImages.length,
+                    (index) => Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _currentPage == index ? Colors.black : Colors.grey,
                       ),
-                    );
-                  },
-                ),
-              ),
-              SizedBox(height: height * 0.01),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  bannerImages.length,
-                      (index) => Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _currentPage == index ? Colors.black : Colors.grey,
                     ),
                   ),
                 ),
-              ),
-              SizedBox(height: height * 0.02),
+                SizedBox(height: height * 0.02),
+              ],
               Expanded(
                 child: searchQuery.isNotEmpty
                     ? GridView.builder(
@@ -920,7 +924,7 @@ class _HomePageState extends State<HomePage> {
                           crossAxisCount: 2,
                           crossAxisSpacing: width * 0.03,
                           mainAxisSpacing: width * 0.03,
-                          childAspectRatio: 0.46,
+                          childAspectRatio: 0.7,
                         ),
                         itemBuilder: (context, index) {
                           final product = searchResults[index];

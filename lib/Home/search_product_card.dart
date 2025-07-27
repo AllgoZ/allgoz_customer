@@ -64,7 +64,7 @@ class SearchProductCard extends StatelessWidget {
                               const BorderRadius.vertical(top: Radius.circular(15)),
                           child: Image.network(
                             product['imageURL'],
-                            height: screenHeight * 0.12,
+                            height: screenHeight * 0.1,
                             width: double.infinity,
                             fit: BoxFit.cover,
                           ),
@@ -92,27 +92,27 @@ class SearchProductCard extends StatelessWidget {
                           ),
                       ],
                     ),
-                    SizedBox(height: 6 * scaleFactor),
+                    SizedBox(height: 4 * scaleFactor),
                     Text(
                       product['name'],
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 13 * scaleFactor,
+                        fontSize: 12 * scaleFactor,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    SizedBox(height: 4 * scaleFactor),
+                    SizedBox(height: 2 * scaleFactor),
                     Text(
                       quantityDisplay,
                       style: TextStyle(
-                        fontSize: 14 * scaleFactor,
+                        fontSize: 12 * scaleFactor,
                         color: Colors.grey,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    SizedBox(height: 4 * scaleFactor),
+                    SizedBox(height: 2 * scaleFactor),
                     if (product['quantityInKg'] != null &&
                         product['quantityInKg'].toString().trim().isNotEmpty)
                       Text(
@@ -122,40 +122,40 @@ class SearchProductCard extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                    SizedBox(height: 4 * scaleFactor),
+                    SizedBox(height: 2 * scaleFactor),
                     Text(
                       '₹${totalPrice.toStringAsFixed(0)}',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 15 * scaleFactor,
+                        fontSize: 14 * scaleFactor,
                         color: Colors.green,
                       ),
                     ),
-                    SizedBox(height: 6 * scaleFactor),
+                    SizedBox(height: 4 * scaleFactor),
+                    const Spacer(),
                     isAvailable
                         ? cartQuantity == 0
-                            ? ElevatedButton(
-                                onPressed: onAdd,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(9),
-                                    side: const BorderSide(color: Colors.green),
+                              ? ElevatedButton(
+                                  onPressed: onAdd,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(9),
+                                      side: const BorderSide(color: Colors.green),
+                                    ),
+                                    minimumSize: Size(screenWidth * 0.4, 36),
                                   ),
-                                  minimumSize: Size(
-                                      screenWidth * 0.4, screenHeight * 0.047),
-                                ),
-                                child: Text(
-                                  "ADD",
-                                  style: TextStyle(
-                                    color: Colors.green,
-                                    fontSize: 15 * scaleFactor,
-                                    fontWeight: FontWeight.bold,
+                                  child: Text(
+                                    "ADD",
+                                    style: TextStyle(
+                                      color: Colors.green,
+                                      fontSize: 14 * scaleFactor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                ),
-                              )
+                                )
                             : Container(
-                                height: screenHeight * 0.047,
+                                height: 36,
                                 width: screenWidth * 0.38,
                                 decoration: BoxDecoration(
                                   color: Colors.white,
@@ -171,20 +171,20 @@ class SearchProductCard extends StatelessWidget {
                                     children: [
                                       IconButton(
                                         icon: const Icon(Icons.remove, color: Colors.green),
-                                        iconSize: 25 * scaleFactor,
+                                        iconSize: 22 * scaleFactor,
                                         onPressed: onRemove,
                                       ),
                                       Text(
                                         "$cartQuantity",
                                         style: TextStyle(
-                                          fontSize: 25 * scaleFactor,
+                                          fontSize: 20 * scaleFactor,
                                           fontWeight: FontWeight.bold,
                                           color: Colors.green,
                                         ),
                                       ),
                                       IconButton(
                                         icon: const Icon(Icons.add, color: Colors.green),
-                                        iconSize: 25 * scaleFactor,
+                                        iconSize: 22 * scaleFactor,
                                         onPressed: onAdd,
                                       ),
                                     ],
