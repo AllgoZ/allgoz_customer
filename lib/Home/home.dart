@@ -39,6 +39,7 @@ class _HomePageState extends State<HomePage> {
   loc.Location location = loc.Location();
   List<Map<String, dynamic>> categories = [];
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   List<Map<String, dynamic>> allProducts = [];
   List<Map<String, dynamic>> searchResults = [];
   String? userCustomerId;
@@ -80,6 +81,7 @@ class _HomePageState extends State<HomePage> {
     _pageController.dispose();
     _bannerTimer?.cancel();
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -508,6 +510,9 @@ class _HomePageState extends State<HomePage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final scaleFactor = screenWidth / 390;
 
+    // Hide keyboard when opening the bottom sheet
+    _searchFocusNode.unfocus();
+
     showModalBottomSheet(
       context: context,
       shape: RoundedRectangleBorder(
@@ -785,6 +790,16 @@ class _HomePageState extends State<HomePage> {
 
     return WillPopScope(
       onWillPop: () async {
+        // If searching or the search field has focus, clear search instead of exiting
+        if (searchQuery.isNotEmpty || _searchFocusNode.hasFocus) {
+          setState(() {
+            searchQuery = '';
+            _searchController.clear();
+          });
+          _searchFocusNode.unfocus();
+          return false;
+        }
+
         SystemNavigator.pop();
         return false; // ✅ must return a bool
       },
@@ -861,6 +876,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 child: TextField(
                   controller: _searchController,
+                  focusNode: _searchFocusNode,
                   onChanged: _performSearch,
                   decoration: const InputDecoration(
                       hintText: 'Search...',
