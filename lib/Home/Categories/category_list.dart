@@ -678,9 +678,12 @@ class _CategoryScreenState extends State<CategoryScreen> {
                                             ? cartQuantity == 0
                                             ? ElevatedButton(
                                           onPressed: () {
+                                            int quantity = int.tryParse(product['quantity'].toString()) ?? 1;
                                             int baseGrams = (product['unit'] == "Kg")
-                                                ? 1000
-                                                : int.tryParse(product['quantity'].toString()) ?? 100;
+                                                ? 1000 * quantity
+                                                : quantity;
+
+
                                             _updateCart(productId, product, 1, baseGrams);
                                           },
                                           style: ElevatedButton.styleFrom(
@@ -718,9 +721,11 @@ class _CategoryScreenState extends State<CategoryScreen> {
                                                   icon: const Icon(Icons.remove, color: Colors.green),
                                                   iconSize: 25 * scaleFactor,
                                                   onPressed: () {
+                                                    int quantity = int.tryParse(product['quantity'].toString()) ?? 1;
                                                     int baseGrams = (product['unit'] == "Kg")
-                                                        ? 1000
-                                                        : int.tryParse(product['quantity'].toString()) ?? 100;
+                                                        ? 1000 * quantity
+                                                        : quantity;
+
                                                     if (cartQuantity > 1) {
                                                       _updateCart(productId, product, cartQuantity - 1, baseGrams);
                                                     } else {
@@ -740,9 +745,12 @@ class _CategoryScreenState extends State<CategoryScreen> {
                                                   icon: const Icon(Icons.add, color: Colors.green),
                                                   iconSize: 25 * scaleFactor,
                                                   onPressed: () {
+                                                    int quantity = int.tryParse(product['quantity'].toString()) ?? 1;
                                                     int baseGrams = (product['unit'] == "Kg")
-                                                        ? 1000
-                                                        : int.tryParse(product['quantity'].toString()) ?? 100;
+                                                        ? 1000 * quantity
+                                                        : quantity;
+
+
                                                     _updateCart(productId, product, cartQuantity + 1, baseGrams);
                                                   },
                                                 ),
@@ -1082,7 +1090,11 @@ class _CategoryScreenState extends State<CategoryScreen> {
     int newQuantity = (cartItems[productId] ?? 0) + 1;
 
     print("📢 Adding product to Firestore: ID = $productId, New Qty = $newQuantity");
-    int baseGrams = (product['unit'] == "Kg") ? 1000 : 1; // ✅ Determine grams per unit
+    int quantity = int.tryParse(product['quantity'].toString()) ?? 1;
+    int baseGrams = (product['unit'] == "Kg")
+        ? 1000 * quantity
+        : quantity;
+// ✅ Determine grams per unit
     _updateCart(productId, product, newQuantity,baseGrams); // ✅ Pass all 4 arguments
 
   }
@@ -1112,9 +1124,11 @@ class _CategoryScreenState extends State<CategoryScreen> {
         return StatefulBuilder(
           builder: (context, setModalState) {
             int totalQuantity = cartItems[product['id']] ?? 0;
+            int quantity = int.tryParse(product['quantity'].toString()) ?? 1;
             int baseGrams = (product['unit'] == "Kg")
-                ? 1000
-                : int.tryParse(product['quantity'].toString()) ?? 100;
+                ? 1000 * quantity
+                : quantity;
+
             int totalGrams = totalQuantity * baseGrams;
 
             return Padding(

@@ -3,6 +3,7 @@ import 'package:allgoz/Account/account.dart';
 import 'package:allgoz/Cart/cart.dart';
 import 'package:allgoz/Favorite/favorite.dart';
 import 'package:allgoz/Home/Categories/category_list.dart';
+import 'package:allgoz/Home/search_product_card.dart';
 import 'package:allgoz/Orders/my_orders.dart';
 import 'package:allgoz/services/youtube_player_widget.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -37,6 +38,12 @@ class _HomePageState extends State<HomePage> {
   String searchQuery = '';
   loc.Location location = loc.Location();
   List<Map<String, dynamic>> categories = [];
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  List<Map<String, dynamic>> allProducts = [];
+  List<Map<String, dynamic>> searchResults = [];
+  String? userCustomerId;
+  Map<String, int> cartItems = {};
   late PageController _pageController;
   Timer? _bannerTimer;
   final TutorialService tutorialService = TutorialService();
@@ -50,6 +57,8 @@ class _HomePageState extends State<HomePage> {
     _pageController = PageController(initialPage: 0);
     _startTutorialFlow(); // 👈 custom method
     _fetchCategories();
+    _fetchUserCustomerId();
+    _fetchAllProducts();
     _fetchBanners();
     _bannerTimer = Timer.periodic(const Duration(seconds: 3), (Timer timer) {
       if (bannerImages.isNotEmpty && _pageController.hasClients) {
@@ -71,6 +80,8 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     _pageController.dispose();
     _bannerTimer?.cancel();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -354,6 +365,424 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _fetchUserCustomerId() {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null && user.email != null) {
+      setState(() {
+        userCustomerId =
+        'google_${user.email!.replaceAll('.', '_').replaceAll('@', '_')}';
+      });
+      _fetchCart();
+    }
+  }
+
+  void _fetchCart() {
+    if (userCustomerId == null) return;
+
+    FirebaseFirestore.instance
+        .collection('customers')
+        .doc(userCustomerId)
+        .collection('cart')
+        .snapshots()
+        .listen((snapshot) {
+      Map<String, int> updatedCart = {};
+
+      for (var doc in snapshot.docs) {
+        int quantity = doc['quantity'] ?? 0;
+        updatedCart[doc.id] = quantity;
+      }
+
+      setState(() {
+        cartItems = updatedCart;
+      });
+    });
+  }
+
+  Future<void> _fetchAllProducts() async {
+    try {
+      QuerySnapshot snapshot =
+      await FirebaseFirestore.instance.collectionGroup('products').get();
+      setState(() {
+        allProducts = snapshot.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return {
+            'id': doc.id,
+            'name': data['name'],
+            'price': data['price'],
+            'imageURL': data['imageURL'],
+            'discount': data['discount'] ?? 0,
+            'quantity': int.tryParse(data['quantity'].toString()) ?? 1,
+            'unit': data['unit'] ?? 'N/A',
+            'grams': int.tryParse(data['grams'].toString()) ?? 0,
+            'available': data['available'] ?? true,
+            'description': data['description'] ?? '',
+            'brand': data['brand'] ?? '',
+            'quantityInKg': data['quantityInKg'] ?? '',
+          };
+        }).toList();
+      });
+    } catch (e) {
+      print('❌ Error fetching products: $e');
+    }
+  }
+
+  void _performSearch(String query) {
+    setState(() {
+      searchQuery = query;
+      searchResults = allProducts
+          .where((p) => p['name']
+          .toString()
+          .toLowerCase()
+          .contains(query.toLowerCase()))
+          .toList();
+    });
+  }
+
+  Future<void> _updateCart(String productId, Map<String, dynamic> product,
+      int totalQuantity, int baseGrams) async {
+    if (userCustomerId == null) return;
+
+    int totalGrams = totalQuantity * baseGrams;
+
+    setState(() {
+      if (totalQuantity > 0) {
+        cartItems[productId] = totalQuantity;
+      } else {
+        cartItems.remove(productId);
+      }
+    });
+
+    DocumentReference cartRef = FirebaseFirestore.instance
+        .collection('customers')
+        .doc(userCustomerId)
+        .collection('cart')
+        .doc(productId);
+
+    try {
+      if (totalQuantity > 0) {
+        await cartRef.set({
+          'name': product['name'],
+          'price': product['price'],
+          'quantity': totalQuantity,
+          'grams': totalGrams,
+          'imageURL': product['imageURL'],
+          'unit': product['unit'],
+          'totalQuantity': totalQuantity,
+        }, SetOptions(merge: true));
+      } else {
+        await cartRef.delete();
+      }
+    } catch (e) {
+      print('❌ Error updating cart: $e');
+    }
+  }
+
+  void _removeFromCart(Map<String, dynamic> product) async {
+    if (userCustomerId == null) return;
+
+    String productId = product['id'];
+
+    setState(() {
+      cartItems.remove(productId);
+    });
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('customers')
+          .doc(userCustomerId)
+          .collection('cart')
+          .doc(productId)
+          .delete();
+    } catch (e) {
+      print('❌ Error removing from cart: $e');
+    }
+  }
+
+  void _addToCart(Map<String, dynamic> product) {
+    if (userCustomerId == null) return;
+    String productId = product['id'];
+    int newQuantity = (cartItems[productId] ?? 0) + 1;
+    int baseGrams = (product['unit'] == "Kg") ? 1000 : 1;
+    _updateCart(productId, product, newQuantity, baseGrams);
+  }
+
+  void _showBottomSheet(BuildContext context, Map<String, dynamic> product) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final scaleFactor = screenWidth / 390;
+
+    // Hide keyboard when opening the bottom sheet
+    _searchFocusNode.unfocus();
+
+    showModalBottomSheet(
+      context: context,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20 * scaleFactor)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            int totalQuantity = cartItems[product['id']] ?? 0;
+            int baseGrams = (product['unit'] == "Kg")
+                ? 1000
+                : int.tryParse(product['quantity'].toString()) ?? 100;
+            int totalGrams = totalQuantity * baseGrams;
+
+            return Padding(
+              padding: EdgeInsets.all(16.0 * scaleFactor),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Align(
+                            alignment: Alignment.topRight,
+                            child: GestureDetector(
+                              onTap: () => Navigator.pop(context),
+                              child: Icon(Icons.close, size: 24 * scaleFactor),
+                            ),
+                          ),
+                          SizedBox(height: 10 * scaleFactor),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(15 * scaleFactor),
+                            child: Image.network(
+                              product['imageURL'],
+                              height: 150 * scaleFactor,
+                            ),
+                          ),
+                          SizedBox(height: 10 * scaleFactor),
+                          Text(product['name'],
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 20 * scaleFactor)),
+                          Text('₹${product['price']}',
+                              style: TextStyle(
+                                  color: Colors.green,
+                                  fontSize: 16 * scaleFactor)),
+                          Text("${product['quantity']} ${product['unit']}",
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16 * scaleFactor,
+                                  color: Colors.grey)),
+                          if (totalQuantity > 0)
+                            Padding(
+                              padding: EdgeInsets.only(top: 10 * scaleFactor),
+                              child: Text("Total: ${totalGrams}g",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16 * scaleFactor,
+                                      color: Colors.blue)),
+                            ),
+                          if ((product['brand'] != null &&
+                              product['brand'].toString().isNotEmpty) ||
+                              (product['description'] != null &&
+                                  product['description'].toString().isNotEmpty))
+                            Container(
+                              width: double.infinity,
+                              margin: EdgeInsets.only(top: 20 * scaleFactor),
+                              padding: EdgeInsets.all(16 * scaleFactor),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF6F8FA),
+                                borderRadius:
+                                BorderRadius.circular(16 * scaleFactor),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Colors.black12,
+                                    blurRadius: 4,
+                                    offset: Offset(0, 2),
+                                  )
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (product['brand'] != null &&
+                                      product['brand'].toString().isNotEmpty)
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text("Brand",
+                                            style: TextStyle(
+                                              fontSize: 14 * scaleFactor,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.grey[700],
+                                            )),
+                                        const SizedBox(height: 4),
+                                        Text(product['brand'],
+                                            style: TextStyle(
+                                                fontSize: 15 * scaleFactor,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.black)),
+                                        const SizedBox(height: 16),
+                                      ],
+                                    ),
+                                  if (product['description'] != null &&
+                                      product['description'].toString().isNotEmpty)
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text("Highlights",
+                                            style: TextStyle(
+                                              fontSize: 14 * scaleFactor,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.grey[700],
+                                            )),
+                                        const SizedBox(height: 6),
+                                        ...product['description']
+                                            .toString()
+                                            .split('•')
+                                            .where((line) => line.trim().isNotEmpty)
+                                            .map((point) => Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 4),
+                                          child: Row(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              const Text("• ",
+                                                  style: TextStyle(
+                                                      fontSize: 14,
+                                                      color: Colors.black)),
+                                              Expanded(
+                                                child: Text(
+                                                  point.trim(),
+                                                  style: const TextStyle(
+                                                      fontSize: 14,
+                                                      color: Colors.black),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        )),
+                                      ],
+                                    ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (totalQuantity > 0)
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => CartScreen()),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(9 * scaleFactor),
+                                side: const BorderSide(color: Colors.green),
+                              ),
+                              minimumSize: Size(double.infinity, 50 * scaleFactor),
+                            ),
+                            child: Text("View Cart",
+                                style: TextStyle(
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16 * scaleFactor)),
+                          ),
+                        ),
+                      SizedBox(width: totalQuantity > 0 ? 10 * scaleFactor : 0),
+                      Expanded(
+                        child: totalQuantity == 0
+                            ? ElevatedButton(
+                          onPressed: () {
+                            setModalState(() {
+                              product['cartQuantity'] = 1;
+                              _updateCart(
+                                  product['id'], product, 1, baseGrams);
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            shape: RoundedRectangleBorder(
+                              borderRadius:
+                              BorderRadius.circular(9 * scaleFactor),
+                            ),
+                            minimumSize:
+                            Size(double.infinity, 48 * scaleFactor),
+                          ),
+                          child: Text("Add to Cart",
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18 * scaleFactor)),
+                        )
+                            : Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius:
+                            BorderRadius.circular(9 * scaleFactor),
+                            border:
+                            Border.all(color: Colors.green, width: 2),
+                          ),
+                          child: Row(
+                            mainAxisAlignment:
+                            MainAxisAlignment.spaceEvenly,
+                            children: [
+                              IconButton(
+                                icon: Icon(Icons.remove,
+                                    color: Colors.green,
+                                    size: 18 * scaleFactor),
+                                onPressed: () {
+                                  setModalState(() {
+                                    if (totalQuantity > 1) {
+                                      _updateCart(
+                                          product['id'],
+                                          product,
+                                          totalQuantity - 1,
+                                          baseGrams);
+                                    } else {
+                                      _removeFromCart(product);
+                                    }
+                                  });
+                                },
+                              ),
+                              Text("$totalQuantity",
+                                  style: TextStyle(
+                                      fontSize: 18 * scaleFactor,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green)),
+                              IconButton(
+                                icon: Icon(Icons.add,
+                                    color: Colors.green,
+                                    size: 20 * scaleFactor),
+                                onPressed: () {
+                                  setModalState(() {
+                                    _updateCart(
+                                        product['id'],
+                                        product,
+                                        totalQuantity + 1,
+                                        baseGrams);
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
@@ -361,6 +790,16 @@ class _HomePageState extends State<HomePage> {
 
     return WillPopScope(
       onWillPop: () async {
+        // If searching or the search field has focus, clear search instead of exiting
+        if (searchQuery.isNotEmpty || _searchFocusNode.hasFocus) {
+          setState(() {
+            searchQuery = '';
+            _searchController.clear();
+          });
+          _searchFocusNode.unfocus();
+          return false;
+        }
+
         SystemNavigator.pop();
         return false; // ✅ must return a bool
       },
@@ -431,59 +870,111 @@ class _HomePageState extends State<HomePage> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(30),
-                  boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 4))],
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 4))
+                  ],
                 ),
                 child: TextField(
-                  onChanged: (value) => setState(() => searchQuery = value),
-                  decoration: const InputDecoration(hintText: 'Search...', border: InputBorder.none, icon: Icon(Icons.search)),
+                  controller: _searchController,
+                  focusNode: _searchFocusNode,
+                  onChanged: _performSearch,
+                  decoration: const InputDecoration(
+                      hintText: 'Search...',
+                      border: InputBorder.none,
+                      icon: Icon(Icons.search)),
                 ),
               ),
               SizedBox(height: height * 0.02),
-              Container(
-                height: height * 0.23,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0xFFB0B1B4), width: 2),
-                  color: Colors.grey[300],
-                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4))],
+              if (searchQuery.isEmpty) ...[
+                Container(
+                  height: height * 0.23,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFFB0B1B4), width: 2),
+                    color: Colors.grey[300],
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4))
+                    ],
+                  ),
+                  child: bannerImages.isEmpty
+                      ? const Center(child: CircularProgressIndicator())
+                      : PageView.builder(
+                    controller: _pageController,
+                    itemCount: bannerImages.length,
+                    onPageChanged: (index) => setState(() => _currentPage = index),
+                    itemBuilder: (context, index) {
+                      return ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.network(
+                          bannerImages[index],
+                          fit: BoxFit.cover,
+                        ),
+                      );
+                    },
+                  ),
                 ),
-                child: bannerImages.isEmpty
-                    ? const Center(child: CircularProgressIndicator())
-                    : PageView.builder(
-                  controller: _pageController,
-                  itemCount: bannerImages.length,
-                  onPageChanged: (index) => setState(() => _currentPage = index),
-                  itemBuilder: (context, index) {
-                    return ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.network(
-                        bannerImages[index],
-                        fit: BoxFit.cover,
+                SizedBox(height: height * 0.01),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    bannerImages.length,
+                        (index) => Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _currentPage == index ? Colors.black : Colors.grey,
                       ),
-                    );
-                  },
-                ),
-              ),
-              SizedBox(height: height * 0.01),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  bannerImages.length,
-                      (index) => Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _currentPage == index ? Colors.black : Colors.grey,
                     ),
                   ),
                 ),
-              ),
-              SizedBox(height: height * 0.02),
+                SizedBox(height: height * 0.02),
+              ],
               Expanded(
-                child: GridView.builder(
+                child: searchQuery.isNotEmpty
+                    ? GridView.builder(
+                  itemCount: searchResults.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: width * 0.03,
+                    mainAxisSpacing: width * 0.03,
+                    childAspectRatio: 0.64,
+                  ),
+                  itemBuilder: (context, index) {
+                    final product = searchResults[index];
+                    final productId = product['id'];
+                    final cartQuantity = cartItems[productId] ?? 0;
+                    final isAvailable = product['available'] ?? true;
+                    final int baseQuantity =
+                        int.tryParse(product['quantity'].toString()) ?? 1;
+                    return SearchProductCard(
+                      product: product,
+                      cartQuantity: cartQuantity,
+                      onAdd: () {
+                        int baseGrams =
+                        (product['unit'] == "Kg") ? 1000 : baseQuantity;
+                        _updateCart(
+                            productId, product, cartQuantity + 1, baseGrams);
+                      },
+                      onRemove: () {
+                        int baseGrams =
+                        (product['unit'] == "Kg") ? 1000 : baseQuantity;
+                        if (cartQuantity > 1) {
+                          _updateCart(productId, product,
+                              cartQuantity - 1, baseGrams);
+                        } else {
+                          _removeFromCart(product);
+                        }
+                      },
+                      onTap: isAvailable
+                          ? () => _showBottomSheet(context, product)
+                          : null,
+                    );
+                  },
+                )
+                    : GridView.builder(
                   itemCount: categories.length,
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,

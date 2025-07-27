@@ -37,7 +37,11 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         await Geolocator.openLocationSettings();
-        return;
+        serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (!serviceEnabled) {
+          setState(() => _isLoading = false);
+          return;
+        }
       }
 
       LocationPermission permission = await Geolocator.checkPermission();
@@ -45,8 +49,9 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
         permission = await Geolocator.requestPermission();
       }
 
-      if (permission == LocationPermission.deniedForever) {
-        await Geolocator.openAppSettings();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        setState(() => _isLoading = false);
         return;
       }
 
@@ -56,7 +61,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       "Latitude: ${pos.latitude.toStringAsFixed(5)}, Longitude: ${pos.longitude.toStringAsFixed(5)}";
       setState(() => _isLoading = false);
     } catch (e) {
-      _selectedLatLng = const LatLng(10.3851, 77.7555); // fallback
+      _selectedLatLng = const LatLng(10.3851, 77.7555);
       _latLngText = "Lat: 10.3851, Lng: 77.7555";
       setState(() => _isLoading = false);
     }
@@ -79,8 +84,20 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   void _centerToCurrentLocation() async {
     final pos = await Geolocator.getCurrentPosition();
     final newLatLng = LatLng(pos.latitude, pos.longitude);
-    _mapController?.animateCamera(CameraUpdate.newLatLngZoom(newLatLng, 17));
-    _updateLatLng(newLatLng);
+    await _mapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(newLatLng, 17));
+    if (_mapController != null) {
+      final size = MediaQuery.of(context).size;
+      final center = await _mapController!.getLatLng(
+        ScreenCoordinate(
+          x: (size.width / 2).round(),
+          y: (size.height / 2).round(),
+        ),
+      );
+      _updateLatLng(center);
+    } else {
+      _updateLatLng(newLatLng);
+    }
   }
 
   void _toggleMapType() {

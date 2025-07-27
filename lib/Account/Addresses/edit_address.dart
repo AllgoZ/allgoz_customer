@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:location/location.dart' as loc;
 import 'package:allgoz/services/location_picker.dart';
 
 class EditAddressScreen extends StatefulWidget {
@@ -31,6 +32,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
   String _addressType = 'Home';
   bool _isFetchingLocation = false;
   bool _isSavingAddress = false;
+  loc.Location location = loc.Location();
   double? latitude;
   double? longitude;
 
@@ -131,6 +133,113 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
     }
   }
 
+  Future<bool> _showLocationBottomSheet() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.location_off, size: 50, color: Colors.red),
+            const SizedBox(height: 10),
+            const Text(
+              'Your device location is off',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Please enable location permission for better delivery experience',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(9),
+                ),
+              ),
+              onPressed: () async {
+                bool serviceEnabled = await location.requestService();
+                if (serviceEnabled) {
+                  Navigator.pop(context);
+                }
+              },
+              child: const Text(
+                'Continue',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return await location.serviceEnabled();
+  }
+
+  Future<void> _selectDeliveryLocation() async {
+    bool serviceEnabled = await location.serviceEnabled();
+    if (!serviceEnabled) {
+      serviceEnabled = await _showLocationBottomSheet();
+      if (!serviceEnabled) return;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      await Geolocator.openAppSettings();
+      return;
+    }
+
+    final LatLng? selected = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LocationPickerScreen(
+          initialLocation: latitude != null && longitude != null
+              ? LatLng(latitude!, longitude!)
+              : null,
+        ),
+      ),
+    );
+
+    if (selected != null) {
+      setState(() {
+        latitude = selected.latitude;
+        longitude = selected.longitude;
+        _locationController.text =
+        'Latitude: ${latitude!.toStringAsFixed(5)}, Longitude: ${longitude!.toStringAsFixed(5)}';
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Location updated!')),
+      );
+    }
+  }
+
   void _saveAddress() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isSavingAddress = true);
@@ -208,31 +317,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
               SizedBox(height: 10 * scaleFactor),
 
               ElevatedButton(
-                onPressed: () async {
-                  final LatLng? selected = await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => LocationPickerScreen(
-                        initialLocation: latitude != null && longitude != null
-                            ? LatLng(latitude!, longitude!)
-                            : null,
-                      ),
-                    ),
-                  );
-
-                  if (selected != null) {
-                    setState(() {
-                      latitude = selected.latitude;
-                      longitude = selected.longitude;
-                      _locationController.text =
-                      'Latitude: ${latitude!.toStringAsFixed(5)}, Longitude: ${longitude!.toStringAsFixed(5)}';
-                    });
-
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Location updated!')),
-                    );
-                  }
-                },
+                onPressed: _selectDeliveryLocation,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
                   padding: EdgeInsets.symmetric(vertical: 14 * scaleFactor),
