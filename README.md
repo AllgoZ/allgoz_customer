@@ -15,3 +15,4 @@ V 1.0.2+29
 - used libraries this version
 - firebase_messaging: ^15.2.9
 - flutter_local_notifications: ^19.3.1
+- Added subcategories and dynamic progress bar in categories page
