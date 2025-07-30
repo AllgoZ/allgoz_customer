@@ -1041,6 +1041,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
           : null,
 
     );
+    // Close WillPopScope
+    );
   }
 
 
