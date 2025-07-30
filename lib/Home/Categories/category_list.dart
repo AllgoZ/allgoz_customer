@@ -37,6 +37,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
   DocumentSnapshot? _lastDocument;
   double _cartTotal = 0.0;
   final double freeDeliveryThreshold = 99.0;
+  String _progressBarMessage = "to unlock free delivery";
 
   List<Map<String, dynamic>> categories = [];
   List<Map<String, dynamic>> subcategories = [];
@@ -58,6 +59,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
     _fetchUserCustomerId();
     _fetchCart();
     _fetchTypes();
+    _fetchProgressBarMessage();
 
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 300) {
@@ -208,6 +210,26 @@ class _CategoryScreenState extends State<CategoryScreen> {
     });
   }
 
+  Future<void> _fetchProgressBarMessage() async {
+    try {
+      DocumentSnapshot doc = await FirebaseFirestore.instance
+          .collection('pricingSettings')
+          .doc('progressBar')
+          .get();
+
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data() as Map<String, dynamic>;
+        if (data['message'] != null) {
+          setState(() {
+            _progressBarMessage = data['message'];
+          });
+        }
+      }
+    } catch (e) {
+      print("❌ Error fetching progress bar message: $e");
+    }
+  }
+
 
 
 
@@ -230,7 +252,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
                 child: Text(
                   _cartTotal >= freeDeliveryThreshold
                       ? "Free delivery unlocked!"
-                      : "Add items worth ₹${(freeDeliveryThreshold - _cartTotal).toStringAsFixed(0)} to unlock free delivery",
+                      : "Add items worth ₹${(freeDeliveryThreshold - _cartTotal).toStringAsFixed(0)} $_progressBarMessage",
                   style: TextStyle(fontWeight: FontWeight.w500),
 
                 ),
@@ -956,7 +978,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            "Add items worth ₹${(freeDeliveryThreshold - _cartTotal).toStringAsFixed(0)} to unlock free delivery",
+                            "Add items worth ₹${(freeDeliveryThreshold - _cartTotal).toStringAsFixed(0)} $_progressBarMessage",
                             style: TextStyle(fontWeight: FontWeight.w500),
                           ),
                         ),
