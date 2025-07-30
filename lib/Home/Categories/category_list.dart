@@ -42,7 +42,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
   List<Map<String, dynamic>> subcategories = [];
   String selectedSubcategory = "";
   List<Map<String, dynamic>> products = [];
-  String selectedType = ""; // Track selected type
+  String selectedType = ""; // Display name for selected type
+  String selectedTypeId = ""; // Firestore document id for selected type
   String? userCustomerId;
   DocumentSnapshot? lastVisibleProduct;
   bool isLoadingMore = false;
@@ -284,8 +285,9 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
       setState(() {
         categories = typeSnapshot.docs.map((doc) {
-          print("📢 Found Type: ${doc['name']}"); // ✅ Debugging logs
+          print("📢 Found Type: ${doc['name']}");
           return {
+            'id': doc.id,
             'name': doc['name'],
             'image': doc['image'],
           };
@@ -294,9 +296,10 @@ class _CategoryScreenState extends State<CategoryScreen> {
         print("✅ Fetched ${categories.length} types: $categories");
 
         if (categories.isNotEmpty) {
-          selectedType = categories[0]['name']; // Default type selection
-          _fetchSubCategories(selectedType);
-          _fetchProducts(); // Fetch products after getting types
+          selectedType = categories[0]['name'];
+          selectedTypeId = categories[0]['id'];
+          _fetchSubCategories(selectedTypeId);
+          _fetchProducts();
         }
       });
     } catch (e) {
@@ -304,13 +307,13 @@ class _CategoryScreenState extends State<CategoryScreen> {
     }
   }
 
-  Future<void> _fetchSubCategories(String typeName) async {
+  Future<void> _fetchSubCategories(String typeId) async {
     try {
       QuerySnapshot subCatSnap = await FirebaseFirestore.instance
           .collection('categories')
           .doc(widget.categoryName.toLowerCase())
           .collection('types')
-          .doc(typeName.toLowerCase())
+          .doc(typeId)
           .collection('subcategories')
           .get();
 
@@ -508,7 +511,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
                   onTap: () {
                     setState(() {
                       selectedType = categories[index]['name'];
-                      _fetchSubCategories(selectedType);
+                      selectedTypeId = categories[index]['id'];
+                      _fetchSubCategories(selectedTypeId);
                       _fetchProducts();
                     });
                   },
