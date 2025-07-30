@@ -39,6 +39,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
   final double freeDeliveryThreshold = 99.0;
 
   List<Map<String, dynamic>> categories = [];
+  List<Map<String, dynamic>> subcategories = [];
+  String selectedSubcategory = "";
   List<Map<String, dynamic>> products = [];
   String selectedType = ""; // Track selected type
   String? userCustomerId;
@@ -94,9 +96,11 @@ class _CategoryScreenState extends State<CategoryScreen> {
       Query query = FirebaseFirestore.instance
           .collectionGroup('products')
           .where('category', isEqualTo: widget.categoryName)
-          .where('type', isEqualTo: selectedType)
-          .startAfterDocument(_lastDocument!)
-          .limit(10);
+          .where('type', isEqualTo: selectedType);
+      if (selectedSubcategory.isNotEmpty) {
+        query = query.where('subcategory', isEqualTo: selectedSubcategory);
+      }
+      query = query.startAfterDocument(_lastDocument!).limit(10);
 
       final querySnapshot = await query.get();
 
@@ -291,11 +295,36 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
         if (categories.isNotEmpty) {
           selectedType = categories[0]['name']; // Default type selection
+          _fetchSubCategories(selectedType);
           _fetchProducts(); // Fetch products after getting types
         }
       });
     } catch (e) {
       print("❌ Error fetching types: $e");
+    }
+  }
+
+  Future<void> _fetchSubCategories(String typeName) async {
+    try {
+      QuerySnapshot subCatSnap = await FirebaseFirestore.instance
+          .collection('categories')
+          .doc(widget.categoryName.toLowerCase())
+          .collection('types')
+          .doc(typeName.toLowerCase())
+          .collection('subcategories')
+          .get();
+
+      setState(() {
+        subcategories = subCatSnap.docs.map((doc) {
+          return {
+            'name': doc['name'],
+            'image': doc['image'],
+          };
+        }).toList();
+        selectedSubcategory = "";
+      });
+    } catch (e) {
+      print("❌ Error fetching subcategories: $e");
     }
   }
 
@@ -318,8 +347,11 @@ class _CategoryScreenState extends State<CategoryScreen> {
       Query query = FirebaseFirestore.instance
           .collectionGroup('products')
           .where('category', isEqualTo: widget.categoryName)
-          .where('type', isEqualTo: selectedType)
-          .limit(20); // Fast initial load
+          .where('type', isEqualTo: selectedType);
+      if (selectedSubcategory.isNotEmpty) {
+        query = query.where('subcategory', isEqualTo: selectedSubcategory);
+      }
+      query = query.limit(20); // Fast initial load
 
       final querySnapshot = await query.get();
 
@@ -476,6 +508,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
                   onTap: () {
                     setState(() {
                       selectedType = categories[index]['name'];
+                      _fetchSubCategories(selectedType);
                       _fetchProducts();
                     });
                   },
@@ -505,6 +538,70 @@ class _CategoryScreenState extends State<CategoryScreen> {
           Expanded(
             child: Column(
               children: [
+
+                if (subcategories.isNotEmpty)
+                  Padding(
+                    padding: EdgeInsets.all(8 * scaleFactor),
+                    child: GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 8 * scaleFactor,
+                        crossAxisSpacing: 8 * scaleFactor,
+                        childAspectRatio: 3,
+                      ),
+                      itemCount: subcategories.length,
+                      itemBuilder: (context, idx) {
+                        final sub = subcategories[idx];
+                        final bool isSelected =
+                            selectedSubcategory == sub['name'];
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              if (isSelected) {
+                                selectedSubcategory = '';
+                              } else {
+                                selectedSubcategory = sub['name'];
+                              }
+                              _fetchProducts();
+                            });
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Colors.blue.shade100
+                                  : Colors.white,
+                              border: Border.all(color: Colors.blue),
+                              borderRadius: BorderRadius.circular(9),
+                            ),
+                            padding: EdgeInsets.all(4 * scaleFactor),
+                            child: Row(
+                              children: [
+                                Image.network(
+                                  sub['image'],
+                                  width: 30 * scaleFactor,
+                                  height: 30 * scaleFactor,
+                                  fit: BoxFit.cover,
+                                ),
+                                SizedBox(width: 4 * scaleFactor),
+                                Expanded(
+                                  child: Text(
+                                    sub['name'],
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12 * scaleFactor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
 
                 // 🛒 Product Grid
                 Expanded(
