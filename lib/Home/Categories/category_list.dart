@@ -434,11 +434,35 @@ class _CategoryScreenState extends State<CategoryScreen> {
       return product['name'].toString().toLowerCase().contains(searchText.toLowerCase());
     }).toList();
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF4A90E2),
-        elevation: 4,
-        automaticallyImplyLeading: true,
+    return WillPopScope(
+      onWillPop: () async {
+        if (selectedSubcategory.isNotEmpty) {
+          setState(() {
+            selectedSubcategory = '';
+          });
+          await _fetchProducts();
+          return false;
+        }
+        return true;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF4A90E2),
+          elevation: 4,
+          automaticallyImplyLeading: false,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () {
+              if (selectedSubcategory.isNotEmpty) {
+                setState(() {
+                  selectedSubcategory = '';
+                });
+                _fetchProducts();
+              } else {
+                Navigator.pop(context);
+              }
+            },
+          ),
         title: Builder(
           builder: (context) {
             return Padding(
@@ -560,46 +584,51 @@ class _CategoryScreenState extends State<CategoryScreen> {
                         final sub = subcategories[idx];
                         final bool isSelected =
                             selectedSubcategory == sub['name'];
-                        return GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              if (isSelected) {
-                                selectedSubcategory = '';
-                              } else {
-                                selectedSubcategory = sub['name'];
-                              }
-                              _fetchProducts();
-                            });
-                          },
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? Colors.blue.shade100
-                                  : Colors.white,
-                              border: Border.all(color: Colors.blue),
-                              borderRadius: BorderRadius.circular(9),
-                            ),
-                            padding: EdgeInsets.all(4 * scaleFactor),
-                            child: Row(
-                              children: [
-                                Image.network(
-                                  sub['image'],
-                                  width: 30 * scaleFactor,
-                                  height: 30 * scaleFactor,
-                                  fit: BoxFit.cover,
-                                ),
-                                SizedBox(width: 4 * scaleFactor),
-                                Expanded(
-                                  child: Text(
-                                    sub['name'],
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12 * scaleFactor,
+                        return Material(
+                          elevation: 3,
+                          borderRadius: BorderRadius.circular(9),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(9),
+                            onTap: () {
+                              setState(() {
+                                if (isSelected) {
+                                  selectedSubcategory = '';
+                                } else {
+                                  selectedSubcategory = sub['name'];
+                                }
+                                _fetchProducts();
+                              });
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? Colors.blue.shade100
+                                    : Colors.white,
+                                border: Border.all(color: Colors.blue),
+                                borderRadius: BorderRadius.circular(9),
+                              ),
+                              padding: EdgeInsets.all(4 * scaleFactor),
+                              child: Row(
+                                children: [
+                                  Image.network(
+                                    sub['image'],
+                                    width: 30 * scaleFactor,
+                                    height: 30 * scaleFactor,
+                                    fit: BoxFit.cover,
+                                  ),
+                                  SizedBox(width: 4 * scaleFactor),
+                                  Expanded(
+                                    child: Text(
+                                      sub['name'],
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12 * scaleFactor,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         );
