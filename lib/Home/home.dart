@@ -46,6 +46,7 @@ class _HomePageState extends State<HomePage> {
   Map<String, int> cartItems = {};
   late PageController _pageController;
   Timer? _bannerTimer;
+  Timer? _searchDebounce;
   final TutorialService tutorialService = TutorialService();
   List<TargetFocus> tutorialTargets = [];
   TutorialCoachMark? tutorialCoachMark;
@@ -80,6 +81,7 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     _pageController.dispose();
     _bannerTimer?.cancel();
+    _searchDebounce?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
@@ -417,6 +419,7 @@ class _HomePageState extends State<HomePage> {
             'available': data['available'] ?? true,
             'description': data['description'] ?? '',
             'brand': data['brand'] ?? '',
+            'tags': List<String>.from(data['tags'] ?? []),
             'quantityInKg': data['quantityInKg'] ?? '',
           };
         }).toList();
@@ -427,14 +430,22 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _performSearch(String query) {
-    setState(() {
-      searchQuery = query;
-      searchResults = allProducts
-          .where((p) => p['name']
-          .toString()
-          .toLowerCase()
-          .contains(query.toLowerCase()))
-          .toList();
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      setState(() {
+        searchQuery = query;
+        final lowerQuery = query.toLowerCase();
+        searchResults = allProducts.where((p) {
+          final name = p['name'].toString().toLowerCase();
+          final brand = p['brand'].toString().toLowerCase();
+          final tags = (p['tags'] as List<dynamic>)
+              .map((tag) => tag.toString().toLowerCase())
+              .toList();
+          return name.contains(lowerQuery) ||
+              brand.contains(lowerQuery) ||
+              tags.any((tag) => tag.contains(lowerQuery));
+        }).toList();
+      });
     });
   }
 
@@ -787,6 +798,8 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     final height = MediaQuery.of(context).size.height;
+    final int cartCount =
+        cartItems.values.fold(0, (sum, item) => sum + item);
 
     return WillPopScope(
       onWillPop: () async {
@@ -1000,10 +1013,36 @@ class _HomePageState extends State<HomePage> {
           selectedItemColor: const Color(0xFF4A90E2),
           unselectedItemColor: Colors.grey,
           onTap: _onItemTapped,
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.shopping_bag), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: 'Cart'),
-            BottomNavigationBarItem(icon: Icon(Icons.delivery_dining), label: 'My Order'),
+          items: [
+            const BottomNavigationBarItem(
+                icon: Icon(Icons.shopping_bag), label: 'Home'),
+            BottomNavigationBarItem(
+              icon: Stack(
+                children: [
+                  const Icon(Icons.shopping_cart),
+                  if (cartCount > 0)
+                    Positioned(
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                            color: Colors.red, shape: BoxShape.circle),
+                        constraints: const BoxConstraints(
+                            minWidth: 16, minHeight: 16),
+                        child: Text(
+                          '$cartCount',
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 10),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              label: 'Cart',
+            ),
+            const BottomNavigationBarItem(
+                icon: Icon(Icons.delivery_dining), label: 'My Order'),
           ],
         ),
       ),

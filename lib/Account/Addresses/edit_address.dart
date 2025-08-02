@@ -385,6 +385,9 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
           if (!readOnly && !optional && (value == null || value.isEmpty)) {
             return 'Please enter $label';
           }
+          if (label.contains('Phone') && value != null && value.isNotEmpty && value.length != 10) {
+            return 'Please enter a valid 10-digit mobile number';
+          }
           return null;
         },
         style: TextStyle(fontSize: 16 * scaleFactor),

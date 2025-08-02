@@ -128,6 +128,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
           'available': data['available'] ?? true,
           'description': data['description'] ?? '',
           'brand': data['brand'] ?? '',
+          'tags': List<String>.from(data['tags'] ?? []),
           'quantityInKg' : data['quantityInKg'] ??'',
 
         };
@@ -402,6 +403,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
           'available': data['available'] ?? true,
           'description': data['description'] ?? '',
           'brand': data['brand'] ?? '',
+          'tags': List<String>.from(data['tags'] ?? []),
           'quantityInKg' : data['quantityInKg'] ??'',
         };
       }).toList();
@@ -452,8 +454,15 @@ class _CategoryScreenState extends State<CategoryScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     final scaleFactor = screenWidth / 390; // Reference width (e.g., iPhone 12)
+    final lowerSearch = searchText.toLowerCase();
     final filteredProducts = products.where((product) {
-      return product['name'].toString().toLowerCase().contains(searchText.toLowerCase());
+      final name = product['name'].toString().toLowerCase();
+      final brand = product['brand'].toString().toLowerCase();
+      final tags = (product['tags'] as List<dynamic>)
+          .map((tag) => tag.toString().toLowerCase());
+      return name.contains(lowerSearch) ||
+          brand.contains(lowerSearch) ||
+          tags.any((tag) => tag.contains(lowerSearch));
     }).toList();
 
     return WillPopScope(
