@@ -12,6 +12,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _subjectController = TextEditingController();
+  final TextEditingController _productController = TextEditingController();
   final TextEditingController _messageController = TextEditingController();
 
   void _submitForm() {
@@ -23,9 +24,10 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
           'subject=${_subjectController.text}'
               '&body=Name: ${_nameController.text}\n'
               'Email: ${_emailController.text}\n\n'
+              'Product Request: ${_productController.text}\n\n'
               '${_messageController.text}',
-        ),
-      );
+          ),
+        );
 
       _launchEmail(emailLaunchUri);
     }
@@ -117,6 +119,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
                         'Email Address', _emailController, scaleFactor,
                         keyboardType: TextInputType.emailAddress),
                     _buildTextField('Subject', _subjectController, scaleFactor),
+                    _buildTextField('Request Product', _productController, scaleFactor),
                     _buildTextField('Message', _messageController, scaleFactor,
                         maxLines: 4),
                     SizedBox(height: 20 * scaleFactor),
