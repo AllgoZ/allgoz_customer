@@ -46,6 +46,7 @@ class _HomePageState extends State<HomePage> {
   Map<String, int> cartItems = {};
   late PageController _pageController;
   Timer? _bannerTimer;
+  Timer? _searchDebounce;
   final TutorialService tutorialService = TutorialService();
   List<TargetFocus> tutorialTargets = [];
   TutorialCoachMark? tutorialCoachMark;
@@ -80,6 +81,7 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     _pageController.dispose();
     _bannerTimer?.cancel();
+    _searchDebounce?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
@@ -428,19 +430,22 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _performSearch(String query) {
-    setState(() {
-      searchQuery = query;
-      final lowerQuery = query.toLowerCase();
-      searchResults = allProducts.where((p) {
-        final name = p['name'].toString().toLowerCase();
-        final brand = p['brand'].toString().toLowerCase();
-        final tags = (p['tags'] as List<dynamic>)
-            .map((tag) => tag.toString().toLowerCase())
-            .toList();
-        return name.contains(lowerQuery) ||
-            brand.contains(lowerQuery) ||
-            tags.any((tag) => tag.contains(lowerQuery));
-      }).toList();
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      setState(() {
+        searchQuery = query;
+        final lowerQuery = query.toLowerCase();
+        searchResults = allProducts.where((p) {
+          final name = p['name'].toString().toLowerCase();
+          final brand = p['brand'].toString().toLowerCase();
+          final tags = (p['tags'] as List<dynamic>)
+              .map((tag) => tag.toString().toLowerCase())
+              .toList();
+          return name.contains(lowerQuery) ||
+              brand.contains(lowerQuery) ||
+              tags.any((tag) => tag.contains(lowerQuery));
+        }).toList();
+      });
     });
   }
 
