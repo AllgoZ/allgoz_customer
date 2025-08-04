@@ -1,9 +1,32 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class UpdateChecker {
+  /// Compare [latest] and [current] version strings and return `true` when
+  /// [latest] is greater than [current]. This safely handles values like
+  /// "1.0.1." by ignoring empty segments and performing a numeric comparison.
+  static bool _isVersionNewer(String latest, String current) {
+    List<int> parse(String v) => v
+        .split('.')
+        .where((e) => e.isNotEmpty)
+        .map((e) => int.tryParse(e) ?? 0)
+        .toList();
+
+    final latestParts = parse(latest);
+    final currentParts = parse(current);
+    final maxLength = math.max(latestParts.length, currentParts.length);
+
+    for (var i = 0; i < maxLength; i++) {
+      final l = i < latestParts.length ? latestParts[i] : 0;
+      final c = i < currentParts.length ? currentParts[i] : 0;
+      if (l != c) return l > c;
+    }
+
+    return false; // Versions are equal
+  }
   static Future<void> checkForUpdate(BuildContext context) async {
     try {
       final PackageInfo packageInfo = await PackageInfo.fromPlatform();
@@ -22,8 +45,11 @@ class UpdateChecker {
       final changelog = data?['changelog'] ?? '';
       final playStoreUrl = data?['playstore_url'] ?? '';
 
-      // Show popup only when update is required and version is different
-      if (updateRequired && latestVersion != currentVersion) {
+      final isUpdateAvailable =
+          _isVersionNewer(latestVersion, currentVersion);
+
+      // Show popup only when update is required and the latest version is newer
+      if (updateRequired && isUpdateAvailable) {
         showDialog(
           context: context,
           barrierDismissible: false,
