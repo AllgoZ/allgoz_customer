@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:android_intent_plus/flag.dart';
 import 'dart:io';
+import 'package:allgoz/services/delivery_message_builder.dart';
 
 class TrackCurrentOrderScreen extends StatefulWidget {
   final Map<String, dynamic> orderData;
@@ -21,21 +22,17 @@ class _TrackCurrentOrderScreenState extends State<TrackCurrentOrderScreen> {
 
 
   Future<void> _fetchDeliveryMessage() async {
-    final doc = await FirebaseFirestore.instance
-        .collection('DeliveryMessage')
-        .doc('Message')
-        .get();
-
-    if (doc.exists && doc.data() != null) {
-      final data = doc.data()!;
-      final tomorrow = DateTime.now().add(const Duration(days: 1));
-      final formattedTomorrow = "${tomorrow.day}/${tomorrow.month.toString().padLeft(2, '0')}/${tomorrow.year}";
-
-      final rawMessage = data['order'] ?? '';
-      setState(() {
-        dynamicDeliveryMessage = "$rawMessage\n📅 $formattedTomorrow";
-      });
-    }
+    final items = (widget.orderData['items'] as List<dynamic>? ?? []);
+    final categories = items
+        .map((e) => (e['category'] ?? '').toString())
+        .toList();
+    final message = await buildDeliveryMessage(
+      cartCategories: categories,
+      firestore: FirebaseFirestore.instance,
+    );
+    setState(() {
+      dynamicDeliveryMessage = message;
+    });
   }
 
 
