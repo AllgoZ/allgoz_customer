@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:allgoz/services/delivery_service.dart';
+import 'package:allgoz/services/delivery_message_builder.dart';
 import 'dart:ui';
 import 'package:intl/intl.dart';
 import 'package:allgoz/services/telegram_service.dart';
@@ -135,6 +136,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     'quantity': doc['quantity'],
                     'unit': doc['unit'],
                     'grams': doc['grams'] ?? 0,
+                    'category': doc['category'],
                   };
                 }).toList();
 
@@ -321,7 +323,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
     _fetchUserDetails();
     _getCurrentLocation();
     _fetchPaymentMethods();
-    _fetchDeliveryMessages(); // ✅ Always fetch tomorrow’s message
+    _fetchDeliveryMessages();
 
     // _fetchCutoffTime(); // ✅ Dynamically decide based on Firestore
     // ✅ Always set to tomorrow
@@ -341,23 +343,17 @@ class _DeliveryScreenState extends State<DeliveryScreen> with SingleTickerProvid
 
 
   Future<void> _fetchDeliveryMessages() async {
-    final doc = await FirebaseFirestore.instance
-        .collection('DeliveryMessage')
-        .doc('Message')
-        .get();
-
-    if (doc.exists && doc.data() != null) {
-      final data = doc.data()!;
-      final tomorrow = DateTime.now().add(const Duration(days: 1));
-      final formattedTomorrow = DateFormat('dd/MM/yyyy').format(tomorrow);
-
-      setState(() {
-        dynamicOrderMessage = data['order'] ?? '';
-        dynamicNoteMessage = data['note'] ?? '';
-        // You can keep date separately if you want to use at end
-        dynamicOrderMessage = "$dynamicOrderMessage\n🗓📌 $formattedTomorrow";
-      });
-    }
+    final categories = widget.cartItems
+        .map((item) => (item['category'] ?? '').toString())
+        .toList();
+    final message = await buildDeliveryMessage(
+      cartCategories: categories,
+      firestore: FirebaseFirestore.instance,
+    );
+    setState(() {
+      dynamicOrderMessage = message;
+      dynamicNoteMessage = null; // notes included in message
+    });
   }
 
 

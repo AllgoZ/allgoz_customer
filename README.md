@@ -16,3 +16,17 @@ V 1.0.2+29
 - firebase_messaging: ^15.2.9
 - flutter_local_notifications: ^19.3.1
 - Added subcategories and dynamic progress bar in categories page
+
+## Delivery Message Builder Usage
+
+```dart
+final message = await buildDeliveryMessage(
+  cartCategories: cartItems.map((e) => e['category'] as String).toList(),
+  firestore: FirebaseFirestore.instance,
+);
+
+setState(() => deliveryMessage = message);
+
+// In the widget tree
+Text(deliveryMessage);
+```
