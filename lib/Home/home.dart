@@ -19,6 +19,7 @@ import 'dart:ui'; // for ImageFilter (blur)
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:allgoz/services/tutorial_service.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+import 'package:allgoz/utility/update_checker.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -70,6 +71,10 @@ class _HomePageState extends State<HomePage> {
           curve: Curves.easeInOut,
         );
       }
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      UpdateChecker.checkForUpdate(context);
     });
 
   }

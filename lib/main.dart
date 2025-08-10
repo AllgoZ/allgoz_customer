@@ -8,7 +8,6 @@ import 'package:allgoz/Home/cards.dart';
 import 'package:allgoz/Home/storedetails.dart';
 import 'package:allgoz/login.dart';
 import 'package:allgoz/entername.dart';
-import 'package:allgoz/utility/update_checker.dart';
 import 'package:allgoz/services/notification_service.dart';
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -100,16 +99,7 @@ class _MyAppState extends State<MyApp> {
 
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          home: Builder(
-            builder: (context) {
-              // ✅ This ensures MaterialLocalizations are available
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                UpdateChecker.checkForUpdate(context);
-              });
-
-              return snapshot.data!;
-            },
-          ),
+          home: snapshot.data!,
           onGenerateRoute: (settings) {
             if (settings.name == '/Home/cards') {
               final args = settings.arguments as String?;
